@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Incident Entry API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .results {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 10px;
+        }
+        .required {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Incident Entry API</h1>
+    
+    <div class="test-section">
+        <h2>Create Incident Report (No Parties Required)</h2>
+        <form id="incidentForm">
+            <label>Incident Date <span class="required">*</span></label>
+            <input type="datetime-local" id="incident_date" required>
+            
+            <label>Incident Location <span class="required">*</span></label>
+            <input type="text" id="incident_location" placeholder="e.g., Main Street, City Center" required>
+            
+            
+            <label>Incident Description <span class="required">*</span></label>
+            <textarea id="incident_description" rows="5" placeholder="Describe what happened..." required></textarea>
+            
+            <label>Crime Type <span class="required">*</span></label>
+            <input type="text" id="crime_type" placeholder="e.g., Traffic Accident, Lost Property" required>
+            
+            <label>Crime Category <span class="required">*</span></label>
+            <select id="crime_category" required>
+                <option value="">Select Category</option>
+                <option value="violent">Violent</option>
+                <option value="property">Property</option>
+                <option value="drug">Drug</option>
+                <option value="cybercrime">Cybercrime</option>
+                <option value="sexual">Sexual</option>
+                <option value="juvenile">Juvenile</option>
+                <option value="other">Other</option>
+            </select>
+            
+            <label>Priority <span class="required">*</span></label>
+            <select id="priority" required>
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+            </select>
+            
+            <label>
+                <input type="checkbox" id="is_sensitive" style="width: auto;">
+                Mark as Sensitive
+            </label>
+            
+            <hr>
+            
+            <h3>Optional Party Information</h3>
+            <label>
+                <input type="checkbox" id="hasParty" style="width: auto;">
+                This incident affects a person (victim or accused)
+            </label>
+            
+            <div id="partySection" style="display: none; margin-top: 15px;">
+                <label>Party Role <span class="required">*</span></label>
+                <select id="party_role">
+                    <option value="">Select Role</option>
+                    <option value="victim">Victim</option>
+                    <option value="accused">Accused</option>
+                </select>
+                
+                <label>First Name <span class="required">*</span></label>
+                <input type="text" id="party_first_name">
+                
+                <label>Middle Name</label>
+                <input type="text" id="party_middle_name">
+                
+                <label>Last Name <span class="required">*</span></label>
+                <input type="text" id="party_last_name">
+                
+                <label>Gender</label>
+                <select id="party_gender">
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+                
+                <label>Phone</label>
+                <input type="text" id="party_phone">
+                
+                <label>National ID</label>
+                <input type="text" id="party_national_id">
+                
+                <label>Address</label>
+                <textarea id="party_address" rows="2"></textarea>
+            </div>
+            
+            <button type="submit">Create Incident Report</button>
+        </form>
+        <div id="results" class="results" style="display:none;"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Pre-filled Test Examples</h2>
+        <button onclick="fillTrafficAccident()">Traffic Accident Example</button>
+        <button onclick="fillLostProperty()">Lost Property Example</button>
+        <button onclick="fillPublicDisturbance()">Public Disturbance Example</button>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8080/api';
+        
+        // Set default date to now
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('incident_date').value = now.toISOString().slice(0, 16);
+        
+        // Toggle party section
+        document.getElementById('hasParty').addEventListener('change', function() {
+            const partySection = document.getElementById('partySection');
+            if (this.checked) {
+                partySection.style.display = 'block';
+            } else {
+                partySection.style.display = 'none';
+                // Clear party fields
+                document.getElementById('party_role').value = '';
+                document.getElementById('party_first_name').value = '';
+                document.getElementById('party_middle_name').value = '';
+                document.getElementById('party_last_name').value = '';
+                document.getElementById('party_gender').value = '';
+                document.getElementById('party_phone').value = '';
+                document.getElementById('party_national_id').value = '';
+                document.getElementById('party_address').value = '';
+            }
+        });
+        
+        // Get token from localStorage or prompt
+        function getAuthToken() {
+            return localStorage.getItem('token') || prompt('Enter your auth token:');
+        }
+        
+        // Handle form submission
+        document.getElementById('incidentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = 'Creating incident...';
+            
+            try {
+                const token = getAuthToken();
+                
+                const data = {
+                    incident_date: document.getElementById('incident_date').value,
+                    incident_location: document.getElementById('incident_location').value,
+                    incident_description: document.getElementById('incident_description').value,
+                    crime_type: document.getElementById('crime_type').value,
+                    crime_category: document.getElementById('crime_category').value,
+                    priority: document.getElementById('priority').value,
+                    is_sensitive: document.getElementById('is_sensitive').checked ? 1 : 0
+                };
+                
+                // Add party data if checkbox is checked
+                if (document.getElementById('hasParty').checked) {
+                    data.party = {
+                        role: document.getElementById('party_role').value,
+                        first_name: document.getElementById('party_first_name').value,
+                        middle_name: document.getElementById('party_middle_name').value || null,
+                        last_name: document.getElementById('party_last_name').value,
+                        gender: document.getElementById('party_gender').value || null,
+                        phone: document.getElementById('party_phone').value || null,
+                        national_id: document.getElementById('party_national_id').value || null,
+                        address: document.getElementById('party_address').value || null
+                    };
+                }
+                
+                console.log('Submitting data:', data);
+                
+                const response = await fetch(`${BASE_URL}/ob/cases/incident`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultsDiv.innerHTML = `<span class="success">✓ Success!</span>\n\n`;
+                    resultsDiv.innerHTML += `Case Number: ${result.data?.case_number || 'N/A'}\n`;
+                    resultsDiv.innerHTML += `OB Number: ${result.data?.ob_number || 'N/A'}\n`;
+                    resultsDiv.innerHTML += `Status: ${result.data?.status || 'draft'}\n\n`;
+                    resultsDiv.innerHTML += JSON.stringify(result, null, 2);
+                } else {
+                    resultsDiv.innerHTML = `<span class="error">✗ Error:</span>\n${JSON.stringify(result, null, 2)}`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultsDiv.innerHTML = `<span class="error">✗ Error:</span>\n${error.message}`;
+            }
+        });
+        
+        // Pre-fill examples
+        function fillTrafficAccident() {
+            document.getElementById('incident_location').value = 'Junction of Main Street and 5th Avenue';
+            document.getElementById('incident_description').value = 'Traffic accident involving two vehicles at intersection. No clear fault determined at scene. One vehicle ran red light but conflicting witness statements. No serious injuries reported. Both drivers exchanged information. Further investigation needed to determine liability.';
+            document.getElementById('crime_type').value = 'Traffic Accident';
+            document.getElementById('crime_category').value = 'other';
+            document.getElementById('priority').value = 'medium';
+            document.getElementById('is_sensitive').checked = false;
+        }
+        
+        function fillLostProperty() {
+            document.getElementById('incident_location').value = 'City Mall, 3rd Floor Food Court';
+            document.getElementById('incident_description').value = 'Citizen reports lost wallet containing cash, ID cards, and credit cards. Last seen at food court area around 2 PM. No suspects identified. CCTV footage requested for review. Wallet described as black leather with distinctive logo.';
+            document.getElementById('crime_type').value = 'Lost Property';
+            document.getElementById('crime_category').value = 'property';
+            document.getElementById('priority').value = 'low';
+            document.getElementById('is_sensitive').checked = false;
+        }
+        
+        function fillPublicDisturbance() {
+            document.getElementById('incident_location').value = 'Central Park, near fountain area';
+            document.getElementById('incident_description').value = 'Reports of loud disturbance and altercation involving multiple individuals. Witnesses report shouting and pushing but no physical violence observed. Group dispersed before officers arrived. Multiple conflicting accounts from bystanders. Unclear who initiated disturbance. No injuries or property damage reported.';
+            document.getElementById('crime_type').value = 'Public Disturbance';
+            document.getElementById('crime_category').value = 'other';
+            document.getElementById('priority').value = 'medium';
+            document.getElementById('is_sensitive').checked = false;
+        }
+    </script>
+</body>
+</html>

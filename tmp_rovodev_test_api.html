@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Solved Cases API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .results {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Solved Cases API Endpoints</h1>
+    
+    <div class="test-section">
+        <h2>1. Test Investigator Solved Cases</h2>
+        <button onclick="testInvestigatorSolved()">Test API Endpoint</button>
+        <div id="investigatorResults" class="results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Test Court Solved Cases</h2>
+        <button onclick="testCourtSolved()">Test API Endpoint</button>
+        <div id="courtResults" class="results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Test Both Endpoints</h2>
+        <button onclick="testBoth()">Test All</button>
+        <div id="bothResults" class="results"></div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8080/api';
+        
+        // Get token from localStorage (assumes you're logged in)
+        function getAuthToken() {
+            return localStorage.getItem('token') || prompt('Enter your auth token:');
+        }
+        
+        async function makeRequest(endpoint) {
+            const token = getAuthToken();
+            const response = await fetch(`${BASE_URL}${endpoint}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return await response.json();
+        }
+        
+        async function testInvestigatorSolved() {
+            const resultsDiv = document.getElementById('investigatorResults');
+            resultsDiv.innerHTML = 'Loading...';
+            
+            try {
+                const data = await makeRequest('/investigation/cases/solved-by-investigator');
+                resultsDiv.innerHTML = `<span class="success">✓ Success!</span>\n\n`;
+                resultsDiv.innerHTML += `Total cases: ${data.data?.length || 0}\n\n`;
+                resultsDiv.innerHTML += JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultsDiv.innerHTML = `<span class="error">✗ Error:</span>\n${error.message}`;
+            }
+        }
+        
+        async function testCourtSolved() {
+            const resultsDiv = document.getElementById('courtResults');
+            resultsDiv.innerHTML = 'Loading...';
+            
+            try {
+                const data = await makeRequest('/investigation/cases/solved-by-court');
+                resultsDiv.innerHTML = `<span class="success">✓ Success!</span>\n\n`;
+                resultsDiv.innerHTML += `Total cases: ${data.data?.length || 0}\n\n`;
+                resultsDiv.innerHTML += JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultsDiv.innerHTML = `<span class="error">✗ Error:</span>\n${error.message}`;
+            }
+        }
+        
+        async function testBoth() {
+            const resultsDiv = document.getElementById('bothResults');
+            resultsDiv.innerHTML = 'Testing both endpoints...\n\n';
+            
+            try {
+                // Test investigator solved
+                resultsDiv.innerHTML += '1. Testing Investigator Solved Cases...\n';
+                const invData = await makeRequest('/investigation/cases/solved-by-investigator');
+                resultsDiv.innerHTML += `   ✓ Found ${invData.data?.length || 0} investigator-solved cases\n\n`;
+                
+                // Test court solved
+                resultsDiv.innerHTML += '2. Testing Court Solved Cases...\n';
+                const courtData = await makeRequest('/investigation/cases/solved-by-court');
+                resultsDiv.innerHTML += `   ✓ Found ${courtData.data?.length || 0} court-solved cases\n\n`;
+                
+                resultsDiv.innerHTML += '<span class="success">✓ All tests passed!</span>\n\n';
+                resultsDiv.innerHTML += 'Summary:\n';
+                resultsDiv.innerHTML += `- Investigator Solved: ${invData.data?.length || 0} cases\n`;
+                resultsDiv.innerHTML += `- Court Solved: ${courtData.data?.length || 0} cases\n`;
+                resultsDiv.innerHTML += `- Total: ${(invData.data?.length || 0) + (courtData.data?.length || 0)} cases\n`;
+                
+            } catch (error) {
+                resultsDiv.innerHTML += `\n<span class="error">✗ Error:</span>\n${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
