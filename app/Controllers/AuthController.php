@@ -202,7 +202,13 @@ class AuthController extends ResourceController
      */
     public function me()
     {
-        $user = $this->request->user;
+        // Get user from request (set by AuthFilter)
+        $user = $this->request->user ?? $GLOBALS['current_user']['user'] ?? null;
+        
+        if (!$user) {
+            return $this->fail('User not found', 401);
+        }
+        
         unset($user['password_hash']);
         
         return $this->respond([

@@ -152,4 +152,116 @@ class ReportController extends ResourceController
         // In production, generate actual PDF here
         return true;
     }
+
+    /**
+     * Public report viewing - no authentication required
+     * This allows anyone with the verification code to view the report
+     * Returns JSON data that the frontend will use to display the report
+     */
+    public function viewPublic($verificationCode)
+    {
+        // Set CORS headers to allow public access
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: GET');
+        
+        try {
+            // Extract case number and code from verification string
+            // Format: CASE-2024-0001_a1b2c3d4e5f6
+            $parts = explode('_', $verificationCode);
+            if (count($parts) !== 2) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Invalid verification code format'
+                ])->setStatusCode(400);
+            }
+
+            $caseNumber = $parts[0];
+            $code = $parts[1];
+
+            // Get case data
+            $caseModel = new \App\Models\CaseModel();
+            $case = $caseModel->where('case_number', $caseNumber)->first();
+
+            if (!$case) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Case not found'
+                ])->setStatusCode(404);
+            }
+
+            // Verify the code
+            $expectedCode = substr(md5($caseNumber . $case['created_at']), 0, 12);
+            if ($code !== $expectedCode) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Invalid verification code'
+                ])->setStatusCode(403);
+            }
+
+            // Get all report data (same as generateReport method)
+            $personModel = new \App\Models\PersonModel();
+            $evidenceModel = new \App\Models\EvidenceModel();
+            $conclusionModel = new \App\Models\InvestigatorConclusionModel();
+
+            // Get parties
+            $parties = $personModel->where('case_id', $case['id'])->findAll();
+
+            // Get evidence
+            $evidence = $evidenceModel->where('case_id', $case['id'])->findAll();
+
+            // Get investigator conclusion
+            $conclusion = $conclusionModel->where('case_id', $case['id'])->first();
+
+            // Get case assignments
+            $db = \Config\Database::connect();
+            $assignments = $db->table('case_assignments')
+                ->select('case_assignments.*, users.full_name as investigator_name')
+                ->join('users', 'users.id = case_assignments.user_id')
+                ->where('case_assignments.case_id', $case['id'])
+                ->get()
+                ->getResultArray();
+
+            // Get case status history
+            $history = $db->table('case_status_history')
+                ->select('case_status_history.*, users.full_name as changed_by_name')
+                ->join('users', 'users.id = case_status_history.changed_by')
+                ->where('case_status_history.case_id', $case['id'])
+                ->orderBy('changed_at', 'DESC')
+                ->get()
+                ->getResultArray();
+
+            // Get court assignment if exists
+            $courtAssignment = $db->table('court_assignments')
+                ->where('case_id', $case['id'])
+                ->get()
+                ->getRowArray();
+
+            // Get created by user info
+            $createdBy = $db->table('users')
+                ->where('id', $case['created_by'])
+                ->get()
+                ->getRowArray();
+
+            return $this->response->setJSON([
+                'success' => true,
+                'data' => [
+                    'case' => $case,
+                    'parties' => $parties,
+                    'evidence' => $evidence,
+                    'conclusion' => $conclusion,
+                    'assignments' => $assignments,
+                    'history' => $history,
+                    'court_assignment' => $courtAssignment,
+                    'created_by' => $createdBy
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            log_message('error', 'Public report view error: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred while loading the report'
+            ])->setStatusCode(500);
+        }
+    }
 }

@@ -9,9 +9,9 @@ class CaseStatusHistoryModel extends Model
     protected $table = 'case_status_history';
     protected $primaryKey = 'id';
     protected $allowedFields = [
-        'case_id', 'old_status', 'new_status', 
+        'case_id', 'previous_status', 'new_status', 
         'old_court_status', 'new_court_status',
-        'changed_by', 'change_reason'
+        'changed_by', 'reason'
     ];
     
     protected $useTimestamps = true;
@@ -25,12 +25,12 @@ class CaseStatusHistoryModel extends Model
     {
         $record = [
             'case_id' => (int)$data['case_id'],
-            'old_status' => isset($data['old_status']) ? (string)$data['old_status'] : null,
+            'previous_status' => isset($data['previous_status']) ? (string)$data['previous_status'] : (isset($data['old_status']) ? (string)$data['old_status'] : null),
             'new_status' => (string)$data['new_status'],
             'old_court_status' => isset($data['old_court_status']) ? (string)$data['old_court_status'] : 'not_sent',
             'new_court_status' => (string)$data['new_court_status'],
             'changed_by' => (int)$data['changed_by'],
-            'change_reason' => isset($data['change_reason']) ? (string)$data['change_reason'] : null
+            'reason' => isset($data['reason']) ? (string)$data['reason'] : (isset($data['change_reason']) ? (string)$data['change_reason'] : null)
         ];
         
         try {

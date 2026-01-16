@@ -62,10 +62,10 @@ class UserModel extends BaseModel
      */
     public function getUserWithCenter(int $userId)
     {
-        return $this->select('users.*, police_centers.center_name, police_centers.center_code')
-                    ->join('police_centers', 'police_centers.id = users.center_id')
-                    ->where('users.id', $userId)
-                    ->first();
+        $this->select('users.*, police_centers.center_name, police_centers.center_code');
+        $this->join('police_centers', 'police_centers.id = users.center_id');
+        $this->where('users.id', $userId);
+        return $this->first();
     }
     
     /**
@@ -73,14 +73,14 @@ class UserModel extends BaseModel
      */
     public function getUsersByCenter(int $centerId, ?string $role = null)
     {
-        $builder = $this->where('center_id', $centerId)
-                        ->where('is_active', 1);
+        $this->where('center_id', $centerId);
+        $this->where('is_active', 1);
         
         if ($role) {
-            $builder->where('role', $role);
+            $this->where('role', $role);
         }
         
-        return $builder->findAll();
+        return $this->findAll();
     }
     
     /**
@@ -88,10 +88,10 @@ class UserModel extends BaseModel
      */
     public function getInvestigators(int $centerId)
     {
-        return $this->where('center_id', $centerId)
-                    ->where('role', 'investigator')
-                    ->where('is_active', 1)
-                    ->findAll();
+        $this->where('center_id', $centerId);
+        $this->where('role', 'investigator');
+        $this->where('is_active', 1);
+        return $this->findAll();
     }
     
     /**

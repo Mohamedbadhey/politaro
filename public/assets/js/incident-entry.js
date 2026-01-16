@@ -211,6 +211,9 @@ function loadIncidentEntryPage() {
         applyTranslations();
     }
     
+    // Load categories from database
+    loadCategories();
+    
     // Setup form submission
     $('#incidentEntryForm').on('submit', handleIncidentSubmission);
     
@@ -439,22 +442,58 @@ async function showSuccessDialog(caseData, wasSubmitted) {
         ? 'Submitted - Awaiting admin approval and investigator assignment'
         : 'Draft - You can submit it later from My Cases';
     
-    const message = `Incident report ${wasSubmitted ? 'submitted' : 'saved'} successfully!<br><br>
-        <strong>Case Number:</strong> ${caseData.case_number || 'N/A'}<br>
-        <strong>OB Number:</strong> ${caseData.ob_number || 'N/A'}<br><br>
-        <em>Status: ${statusText}</em><br><br>
-        <button class="btn btn-primary" onclick="loadPage('my-cases')" style="margin-right: 10px;">
-            <i class="fas fa-folder-open"></i> View My Cases
-        </button>
-        <button class="btn btn-secondary" onclick="resetIncidentForm()">
-            <i class="fas fa-plus"></i> Create Another
-        </button>`;
+    const result = await Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        html: `
+            <p>Incident report ${wasSubmitted ? 'submitted' : 'saved'} successfully!</p>
+            <div style="margin: 20px 0; padding: 15px; background: #f3f4f6; border-radius: 8px; text-align: left;">
+                <strong>Case Number:</strong> ${caseData.case_number || 'N/A'}<br>
+                <strong>OB Number:</strong> ${caseData.ob_number || 'N/A'}<br>
+                <strong>Status:</strong> ${statusText}
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-folder-open"></i> View My Cases',
+        cancelButtonText: '<i class="fas fa-plus"></i> Create Another',
+        confirmButtonColor: '#3b82f6',
+        cancelButtonColor: '#6b7280',
+        allowOutsideClick: false
+    });
     
-    if (typeof showSuccess === 'function') {
-        await showSuccess('Success!', message);
-    } else {
-        alert('Incident report created successfully!\n\nCase Number: ' + (caseData.case_number || 'N/A') + '\nOB Number: ' + (caseData.ob_number || 'N/A'));
+    if (result.isConfirmed) {
         loadPage('my-cases');
+    } else if (result.isDismissed) {
+        resetIncidentForm();
+    }
+}
+
+/**
+ * Load categories from database
+ */
+async function loadCategories() {
+    try {
+        // Use /ob/categories for OB officers (has proper access control)
+        const response = await api.get('/ob/categories');
+        
+        if (response.status === 'success' && response.data) {
+            const categorySelect = $('#crime_category');
+            
+            // Clear existing options except the first one (Select Category)
+            categorySelect.find('option:not(:first)').remove();
+            
+            // Add categories from database
+            response.data.forEach(category => {
+                if (category.is_active == 1) {
+                    categorySelect.append(
+                        `<option value="${category.slug}">${category.name_en || category.name_so}</option>`
+                    );
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading categories:', error);
+        // Keep the default hardcoded categories if API fails
     }
 }
 

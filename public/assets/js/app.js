@@ -148,6 +148,7 @@ function loadNavigation() {
     
     if (role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN) {
         nav.append(createNavItem('pending-cases', 'pending_approval', 'fas fa-clock'));
+        nav.append(createNavItem('case-tracking', 'case_tracking', 'fas fa-tasks'));
         nav.append(createNavItem('all-cases', 'all_cases', 'fas fa-folder-open'));
         nav.append(createNavItem('cases-by-category', 'cases_by_category', 'fas fa-folder-tree'));
         nav.append(createNavItem('assignments', 'assignments', 'fas fa-tasks'));
@@ -175,6 +176,10 @@ function loadNavigation() {
         nav.append(createNavItem('case-persons', 'case_persons', 'fas fa-user-friends'));
         nav.append(createNavItem('evidence', 'evidence_management', 'fas fa-box'));
         nav.append(createNavItem('reports', 'case_reports', 'fas fa-file-alt'));
+        nav.append(createNavItem('medical-examination-form', 'medical_examination_form', 'fas fa-file-medical'));
+        nav.append(createNavItem('medical-forms-dashboard', 'medical_forms_dashboard', 'fas fa-notes-medical'));
+        nav.append(createNavItem('non-criminal-certificate', 'non_criminal_certificate', 'fas fa-certificate'));
+        nav.append(createNavItem('certificates-dashboard', 'certificates_dashboard', 'fas fa-chart-line'));
         nav.append(createNavItem('investigator-solved-cases', 'investigator_solved_cases', 'fas fa-check-circle'));
         nav.append(createNavItem('court-solved-cases', 'court_solved_cases', 'fas fa-gavel'));
         if (role === USER_ROLES.INVESTIGATOR) {
@@ -1877,6 +1882,9 @@ function loadPage(page, updateNav = true) {
         case 'pending-cases':
             loadPendingCasesPage();
             break;
+        case 'case-tracking':
+            loadCaseTrackingDashboard();
+            break;
         case 'all-cases':
             loadAllCasesPage();
             break;
@@ -1901,6 +1909,22 @@ function loadPage(page, updateNav = true) {
             break;
         case 'report-settings':
             loadReportSettingsPage();
+            break;
+        
+        case 'medical-examination-form':
+            loadMedicalExaminationForm();
+            break;
+        
+        case 'medical-forms-dashboard':
+            loadMedicalFormsDashboard();
+            break;
+        
+        case 'non-criminal-certificate':
+            loadNonCriminalCertificate();
+            break;
+        
+        case 'certificates-dashboard':
+            loadCertificatesDashboard();
             break;
         case 'evidence':
             loadEvidencePage();
@@ -3040,7 +3064,7 @@ function loadOBEntryPage() {
                 </div>
                 <div class="form-group">
                     <label data-i18n="crime_category_required">${t('crime_category')} *</label>
-                    <select name="crime_category" required>
+                    <select name="crime_category" id="ob_crime_category" required>
                         <option value="" data-i18n="select_category">${t('select_category')}</option>
                         <option value="violent" data-i18n="violent_crime">${t('violent_crime')}</option>
                         <option value="property" data-i18n="property_crime">${t('property_crime')}</option>
@@ -3284,6 +3308,9 @@ function loadOBEntryPage() {
             </div>
         </form>
     `);
+    
+    // Load categories from database
+    loadOBCategories();
     
     $('#obEntryForm').on('submit', function(e) {
         e.preventDefault();
@@ -3836,6 +3863,34 @@ async function saveOBEntry(status) {
                 confirmButtonColor: '#ef4444'
             });
         }
+    }
+}
+
+/**
+ * Load categories from database for OB Entry form
+ */
+async function loadOBCategories() {
+    try {
+        const response = await api.get('/admin/categories');
+        
+        if (response.status === 'success' && response.data) {
+            const categorySelect = $('#ob_crime_category');
+            
+            // Clear existing options except the first one (Select Category)
+            categorySelect.find('option:not(:first)').remove();
+            
+            // Add categories from database
+            response.data.forEach(category => {
+                if (category.is_active == 1) {
+                    categorySelect.append(
+                        `<option value="${category.slug}">${category.name_en || category.name_so}</option>`
+                    );
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading OB categories:', error);
+        // Keep the default hardcoded categories if API fails
     }
 }
 
@@ -7875,3 +7930,115 @@ $(document).on('click', function(e) {
         $('#languageDropdown').hide();
     }
 });
+
+// ============================================
+// Medical Examination Form
+// ============================================
+
+// Load Medical Examination Form Page
+function loadMedicalExaminationForm() {
+    $('#pageTitle').text(t('medical_examination_form'));
+    $('#pageContent').html('<iframe id="medicalFormIframe" src="assets/pages/medical-examination-report.html" style="width:100%; height:calc(100vh - 100px); border:none;"></iframe>');
+    
+    // Listen for case data requests from iframe
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'REQUEST_CASE_DATA') {
+            sendCaseDataToForm();
+        }
+    });
+}
+
+// Load Medical Forms Dashboard
+function loadMedicalFormsDashboard() {
+    $('#pageTitle').text(t('medical_forms_dashboard'));
+    $('#pageContent').html('<iframe id="medicalFormsDashboardIframe" src="assets/pages/medical-forms-dashboard.html" style="width:100%; height:calc(100vh - 100px); border:none;"></iframe>');
+}
+
+// Load Non-Criminal Certificate Page
+function loadNonCriminalCertificate() {
+    $('#pageTitle').text(t('non_criminal_certificate'));
+    $('#pageContent').html('<iframe id="nonCriminalCertIframe" src="assets/pages/non-criminal-certificate.html" style="width:100%; height:calc(100vh - 100px); border:none;"></iframe>');
+}
+
+// Load Certificates Dashboard
+function loadCertificatesDashboard() {
+    $('#pageTitle').text(t('certificates_dashboard'));
+    $('#pageContent').html('<iframe id="certsDashboardIframe" src="assets/pages/certificates-dashboard.html" style="width:100%; height:calc(100vh - 100px); border:none;"></iframe>');
+    
+    // Listen for navigation messages from iframe
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.action === 'navigate') {
+            navigateToPage(event.data.page);
+        }
+    });
+}
+
+// Send case data to medical form iframe
+function sendCaseDataToForm() {
+    const iframe = document.getElementById('medicalFormIframe');
+    if (!iframe) return;
+    
+    // Get current active case if any
+    const activeCaseId = localStorage.getItem('active_case_id');
+    
+    if (activeCaseId) {
+        // Fetch case data from API
+        $.ajax({
+            url: `${API_BASE_URL}/investigation/cases/${activeCaseId}`,
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'X-Language': getCurrentLanguage()
+            },
+            success: function(response) {
+                if (response.data) {
+                    const caseData = {
+                        id: response.data.id,
+                        case_number: response.data.case_number,
+                        victim_name: response.data.victim_name || '',
+                        accused_name: response.data.accused_name || '',
+                        location: response.data.location || '',
+                        incident_date: response.data.incident_date || '',
+                        investigator: {
+                            name: currentUser.full_name || currentUser.username,
+                            rank: currentUser.rank || '',
+                            phone: currentUser.phone || ''
+                        }
+                    };
+                    
+                    // Send case data to iframe
+                    iframe.contentWindow.postMessage({
+                        type: 'CASE_DATA',
+                        caseData: caseData
+                    }, '*');
+                }
+            },
+            error: function() {
+                console.log('No active case found');
+                // Send user data at least
+                iframe.contentWindow.postMessage({
+                    type: 'CASE_DATA',
+                    caseData: {
+                        investigator: {
+                            name: currentUser.full_name || currentUser.username,
+                            rank: currentUser.rank || '',
+                            phone: currentUser.phone || ''
+                        }
+                    }
+                }, '*');
+            }
+        });
+    } else {
+        // No active case, just send user info
+        iframe.contentWindow.postMessage({
+            type: 'CASE_DATA',
+            caseData: {
+                investigator: {
+                    name: currentUser.full_name || currentUser.username,
+                    rank: currentUser.rank || '',
+                    phone: currentUser.phone || ''
+                }
+            }
+        }, '*');
+    }
+}

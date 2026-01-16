@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Verification - Jubaland Police</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header img {
+            max-width: 80px;
+            margin-bottom: 15px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        
+        .loading i {
+            font-size: 48px;
+            color: #667eea;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading p {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        
+        .status-valid {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-invalid {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status-revoked {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .certificate-details {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .detail-row {
+            display: flex;
+            padding: 15px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #374151;
+            width: 200px;
+            flex-shrink: 0;
+        }
+        
+        .detail-value {
+            color: #1f2937;
+            flex-grow: 1;
+        }
+        
+        .photo-section {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .photo-section img {
+            max-width: 200px;
+            border-radius: 10px;
+            border: 3px solid #667eea;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .verification-info {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        
+        .verification-info p {
+            color: #1e40af;
+            margin: 8px 0;
+        }
+        
+        .error-message {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .error-message i {
+            font-size: 64px;
+            color: #ef4444;
+            margin-bottom: 20px;
+        }
+        
+        .error-message h2 {
+            font-size: 24px;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        
+        .error-message p {
+            color: #6b7280;
+            font-size: 16px;
+        }
+        
+        .footer {
+            background: #f9fafb;
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+        
+        @media (max-width: 768px) {
+            .detail-row {
+                flex-direction: column;
+            }
+            
+            .detail-label {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+            
+            .header h1 {
+                font-size: 22px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="assets/images/logo.png" alt="Police Logo">
+            <h1>Non-Criminal Certificate Verification</h1>
+            <p>Criminal Investigation Directorate - Jubaland Police</p>
+        </div>
+        
+        <div class="content" id="contentArea">
+            <div class="loading">
+                <i class="fas fa-spinner"></i>
+                <p>Verifying certificate...</p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; 2026 Jubaland Police Force. All rights reserved.</p>
+            <p style="margin-top: 5px;">
+                <i class="fas fa-shield-alt"></i> Secure Certificate Verification System
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        // Extract token from URL
+        const urlPath = window.location.pathname;
+        const token = urlPath.split('/').pop();
+        
+        // Verify certificate on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (token && token !== 'verify-certificate.html') {
+                verifyCertificate(token);
+            } else {
+                showError('No verification token provided', 'Please scan a valid QR code');
+            }
+        });
+        
+        async function verifyCertificate(token) {
+            try {
+                const baseUrl = window.location.origin;
+                const endpoint = `${baseUrl}/verify-certificate/${token}`;
+                
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.valid && result.status === 'success') {
+                    displayCertificate(result.data);
+                } else if (result.status === 'warning') {
+                    displayRevokedCertificate(result.data, result.message);
+                } else {
+                    showError('Certificate Not Found', result.message || 'This certificate could not be verified');
+                }
+                
+            } catch (error) {
+                console.error('Verification error:', error);
+                showError('Verification Failed', 'Unable to verify the certificate. Please try again later.');
+            }
+        }
+        
+        function displayCertificate(cert) {
+            const content = document.getElementById('contentArea');
+            
+            const issueDate = new Date(cert.issue_date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            const photoHtml = cert.photo_path ? 
+                `<div class="photo-section">
+                    <img src="${cert.photo_path}" alt="Person Photo">
+                </div>` : '';
+            
+            content.innerHTML = `
+                <div style="text-align: center;">
+                    <span class="status-badge status-valid">
+                        <i class="fas fa-check-circle"></i> VALID CERTIFICATE
+                    </span>
+                </div>
+                
+                ${photoHtml}
+                
+                <div class="certificate-details">
+                    <div class="detail-row">
+                        <div class="detail-label">Certificate Number:</div>
+                        <div class="detail-value"><strong>${cert.certificate_number}</strong></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Full Name:</div>
+                        <div class="detail-value"><strong>${cert.person_name}</strong></div>
+                    </div>
+                    ${cert.mother_name ? `
+                    <div class="detail-row">
+                        <div class="detail-label">Mother's Name:</div>
+                        <div class="detail-value">${cert.mother_name}</div>
+                    </div>` : ''}
+                    <div class="detail-row">
+                        <div class="detail-label">Gender:</div>
+                        <div class="detail-value">${cert.gender}</div>
+                    </div>
+                    ${cert.birth_date ? `
+                    <div class="detail-row">
+                        <div class="detail-label">Date of Birth:</div>
+                        <div class="detail-value">${new Date(cert.birth_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                    </div>` : ''}
+                    ${cert.birth_place ? `
+                    <div class="detail-row">
+                        <div class="detail-label">Place of Birth:</div>
+                        <div class="detail-value">${cert.birth_place}</div>
+                    </div>` : ''}
+                    <div class="detail-row">
+                        <div class="detail-label">Issue Date:</div>
+                        <div class="detail-value">${issueDate}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Validity Period:</div>
+                        <div class="detail-value">${cert.validity_period}</div>
+                    </div>
+                    ${cert.purpose ? `
+                    <div class="detail-row">
+                        <div class="detail-label">Purpose:</div>
+                        <div class="detail-value">${cert.purpose}</div>
+                    </div>` : ''}
+                    ${cert.director_name ? `
+                    <div class="detail-row">
+                        <div class="detail-label">Issued By:</div>
+                        <div class="detail-value">${cert.director_name}</div>
+                    </div>` : ''}
+                </div>
+                
+                <div class="verification-info">
+                    <p><i class="fas fa-info-circle"></i> <strong>Verification Details</strong></p>
+                    <p><i class="fas fa-clock"></i> Verified: ${new Date().toLocaleString()}</p>
+                    <p><i class="fas fa-check-double"></i> Total Verifications: ${cert.verification_count || 0}</p>
+                    ${cert.last_verified_at ? `<p><i class="fas fa-history"></i> Last Verified: ${new Date(cert.last_verified_at).toLocaleString()}</p>` : ''}
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="window.print()">
+                        <i class="fas fa-print"></i> Print Certificate
+                    </button>
+                    <button class="btn btn-secondary" onclick="location.reload()">
+                        <i class="fas fa-redo"></i> Verify Again
+                    </button>
+                </div>
+            `;
+        }
+        
+        function displayRevokedCertificate(cert, message) {
+            const content = document.getElementById('contentArea');
+            
+            content.innerHTML = `
+                <div style="text-align: center;">
+                    <span class="status-badge status-revoked">
+                        <i class="fas fa-exclamation-triangle"></i> REVOKED CERTIFICATE
+                    </span>
+                </div>
+                
+                <div class="certificate-details">
+                    <div class="detail-row">
+                        <div class="detail-label">Certificate Number:</div>
+                        <div class="detail-value"><strong>${cert.certificate_number}</strong></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Person Name:</div>
+                        <div class="detail-value">${cert.person_name}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Original Issue Date:</div>
+                        <div class="detail-value">${new Date(cert.issue_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                    </div>
+                </div>
+                
+                <div class="verification-info" style="background: #fef3c7; border-left-color: #f59e0b;">
+                    <p style="color: #92400e;"><i class="fas fa-exclamation-circle"></i> <strong>${message}</strong></p>
+                    <p style="color: #92400e;"><i class="fas fa-info-circle"></i> This certificate is no longer valid. Please contact the issuing authority for more information.</p>
+                </div>
+                
+                <div class="action-buttons">
+                    <a href="mailto:info@cidpolice.jls.so" class="btn btn-primary">
+                        <i class="fas fa-envelope"></i> Contact CID
+                    </a>
+                </div>
+            `;
+        }
+        
+        function showError(title, message) {
+            const content = document.getElementById('contentArea');
+            
+            content.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-times-circle"></i>
+                    <h2>${title}</h2>
+                    <p>${message}</p>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="location.reload()">
+                            <i class="fas fa-redo"></i> Try Again
+                        </button>
+                        <a href="/" class="btn btn-primary">
+                            <i class="fas fa-home"></i> Go to Home
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

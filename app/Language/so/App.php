@@ -224,6 +224,10 @@ return [
     'incident_entry_desc' => 'Diiwaan geli dhacdooyin aan lahayn dhibane ama eedaysan si toos ah',
     'create_incident' => 'Samee Warbixin Dhacdada Cusub',
     'incident_entry_note' => 'Dadka (dhibane/eedaysan) waxaa lagu dari karaa markii dambe inta lagu jiro baaritaanka',
+    
+    // Case Tracking Dashboard
+    'case_tracking' => 'La Socod Kiiska',
+    'case_tracking_desc' => 'La soco kiisaska la wareejiyay iyo waxqabadka baarayaasha',
     'incident_details' => 'Faahfaahinta Dhacdada',
     'crime_classification' => 'Qaybinta Dambiiga',
     'create_incident_btn' => 'Samee Warbixinta Dhacdada',
@@ -1072,4 +1076,8 @@ return [
     'email' => 'Iimayl',
     'collected_from' => 'Laga Ururiyay',
     'evidence_number' => 'Lambarka Caddaynta',
+    'medical_examination_form' => 'Foomka Baaritaanka Dhakhtarka',
+    'medical_forms_dashboard' => 'Dashboard Foomamka Caafimaadka',
+    'non_criminal_certificate' => 'Shahaadada Dambi La\'aanta',
+    'certificates_dashboard' => 'Dashboard Shahaadooyinka',
 ];

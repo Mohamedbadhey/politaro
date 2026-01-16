@@ -91,7 +91,7 @@ class CaseReviewController extends ResourceController
             ->select('cases.*, users.full_name as created_by_name, users.role as creator_role')
             ->join('users', 'users.id = cases.created_by')
             ->where('cases.center_id', $centerId)
-            ->where('cases.status', 'submitted');
+            ->whereIn('cases.status', ['submitted', 'pending_parties']);
         
         // Admin can only see pending cases they created or created by OB officers
         if ($userRole === 'admin') {
@@ -127,22 +127,33 @@ class CaseReviewController extends ResourceController
             return $this->failForbidden('You do not have permission to approve this case');
         }
         
-        if ($case['status'] != 'submitted') {
-            return $this->fail('Case is not in submitted status', 400);
+        // Check if case is in a valid status for approval
+        $validStatuses = ['submitted', 'pending_parties'];
+        if (!in_array($case['status'], $validStatuses)) {
+            return $this->fail("Cannot approve case with status '{$case['status']}'. Only 'submitted' or 'pending_parties' cases can be approved.", 400);
         }
         
         $caseModel->updateStatus($id, 'approved', $this->request->userId);
         
-        // Notify case creator
-        $notificationModel = model('App\Models\NotificationModel');
-        $notificationModel->insert([
-            'user_id' => $case['created_by'],
-            'case_id' => $id,
-            'type' => 'status_changed',
-            'title' => 'Case Approved',
-            'message' => "Your case {$case['case_number']} has been approved",
-            'link' => '/cases/' . $id
-        ]);
+        // Notify case creator (wrapped in try-catch to not break the response)
+        try {
+            $db = \Config\Database::connect();
+            $db->table('notifications')->insert([
+                'user_id' => (int)$case['created_by'],
+                'notification_type' => 'status_changed',
+                'title' => 'Case Approved',
+                'message' => "Your case {$case['case_number']} has been approved",
+                'link_entity_type' => 'cases',
+                'link_entity_id' => (int)$id,
+                'link_url' => '/cases/' . $id,
+                'priority' => 'medium',
+                'is_read' => 0,
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to create approval notification: ' . $e->getMessage());
+            // Don't fail the whole request if notification fails
+        }
         
         return $this->respond([
             'status' => 'success',
@@ -174,23 +185,34 @@ class CaseReviewController extends ResourceController
             return $this->failForbidden('You do not have permission to return this case');
         }
         
-        if ($case['status'] != 'submitted') {
-            return $this->fail('Case is not in submitted status', 400);
+        // Check if case is in a valid status for returning
+        $validStatuses = ['submitted', 'pending_parties'];
+        if (!in_array($case['status'], $validStatuses)) {
+            return $this->fail("Cannot return case with status '{$case['status']}'. Only 'submitted' or 'pending_parties' cases can be returned.", 400);
         }
         
         $reason = $this->request->getPost('reason');
         $caseModel->updateStatus($id, 'returned', $this->request->userId, $reason);
         
-        // Notify case creator
-        $notificationModel = model('App\Models\NotificationModel');
-        $notificationModel->insert([
-            'user_id' => $case['created_by'],
-            'case_id' => $id,
-            'type' => 'status_changed',
-            'title' => 'Case Returned for Revision',
-            'message' => "Your case {$case['case_number']} has been returned. Reason: {$reason}",
-            'link' => '/cases/' . $id
-        ]);
+        // Notify case creator (wrapped in try-catch to not break the response)
+        try {
+            $db = \Config\Database::connect();
+            $db->table('notifications')->insert([
+                'user_id' => (int)$case['created_by'],
+                'notification_type' => 'status_changed',
+                'title' => 'Case Returned for Revision',
+                'message' => "Your case {$case['case_number']} has been returned. Reason: {$reason}",
+                'link_entity_type' => 'cases',
+                'link_entity_id' => (int)$id,
+                'link_url' => '/cases/' . $id,
+                'priority' => 'high',
+                'is_read' => 0,
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to create return notification: ' . $e->getMessage());
+            // Don't fail the whole request if notification fails
+        }
         
         return $this->respond([
             'status' => 'success',

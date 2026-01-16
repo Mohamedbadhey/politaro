@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // CASE REPORT GENERATION
 // ============================================
 
@@ -96,6 +96,8 @@ async function viewReportInBrowser(caseId, language = 'en') {
             // Auto-trigger print dialog after content loads
             printWindow.onload = function() {
                 printWindow.focus();
+                // Generate QR code after document loads
+                generateReportQRCode(printWindow, reportData, language);
                 // Optional: Auto-print
                 // printWindow.print();
             };
@@ -107,6 +109,59 @@ async function viewReportInBrowser(caseId, language = 'en') {
         closeAlert();
         console.error('Error loading report:', error);
         await showError('Error', 'Failed to prepare report for printing');
+    }
+}
+
+/**
+ * Generate QR Code for Report Verification
+ */
+function generateReportQRCode(printWindow, reportData, language) {
+    try {
+        const qrContainer = printWindow.document.getElementById('qrCode');
+        if (!qrContainer) {
+            console.warn('QR code container not found in report');
+            return;
+        }
+        
+        // Create public report URL - anyone can view the report by scanning
+        const baseUrl = window.location.origin;
+        const caseNumber = reportData.case.case_number;
+        const timestamp = reportData.case.created_at;
+        const verificationCode = generateVerificationCode(caseNumber, timestamp);
+        const publicReportUrl = `${baseUrl}/public-report.html?case=${caseNumber}&code=${verificationCode}`;
+        
+        // Clear container
+        qrContainer.innerHTML = '';
+        
+        // Check if QRCode library is available
+        if (typeof printWindow.QRCode !== 'undefined') {
+            // Use QRCode library
+            new printWindow.QRCode(qrContainer, {
+                text: publicReportUrl,
+                width: 120,
+                height: 120,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: printWindow.QRCode.CorrectLevel.H
+            });
+        } else {
+            // Fallback to Google Charts API
+            const qrSize = 150;
+            const qrImg = printWindow.document.createElement('img');
+            qrImg.src = `https://chart.googleapis.com/chart?cht=qr&chl=${encodeURIComponent(publicReportUrl)}&chs=${qrSize}x${qrSize}&chld=H|0`;
+            qrImg.alt = 'QR Code';
+            qrImg.style.width = '100%';
+            qrImg.style.height = '100%';
+            qrContainer.appendChild(qrImg);
+        }
+        
+        console.log('QR Code generated for report:', reportData.case.case_number);
+    } catch (error) {
+        console.error('Error generating QR code for report:', error);
+        // Show fallback text
+        if (qrContainer) {
+            qrContainer.innerHTML = '<div style="font-size: 10px; color: #999;">QR Code Error</div>';
+        }
     }
 }
 
@@ -265,6 +320,8 @@ async function viewFullReportInBrowser(caseId, language = 'en') {
             
             printWindow.onload = function() {
                 printWindow.focus();
+                // Generate QR code after document loads
+                generateReportQRCode(printWindow, reportData, language);
             };
         } else {
             closeAlert();
@@ -398,22 +455,22 @@ function viewFullReportInBrowser_OLD(caseId) {
                         console.error('Full Report Error:', error);
                         document.body.innerHTML = \`
                             <div style="max-width: 800px; margin: 50px auto; padding: 30px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                                <h2 style="color: #e74c3c;">❌ Error Loading Report</h2>
+                                <h2 style="color: #e74c3c;">? Error Loading Report</h2>
                                 
                                 <div style="background: #f8d7da; border-left: 4px solid #e74c3c; padding: 15px; margin: 20px 0;">
                                     <strong>Error Message:</strong>
                                     <pre style="margin: 10px 0; white-space: pre-wrap; word-wrap: break-word;">\${error.message}</pre>
                                 </div>
                                 
-                                <h3>🔍 Debug Information:</h3>
+                                <h3>?? Debug Information:</h3>
                                 <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
                                     <pre style="margin: 0; white-space: pre-wrap;">URL: ${url}
-Token: ${token ? 'Present (length: ' + '${token}'.length + ')' : '❌ MISSING - Please login again'}
+Token: ${token ? 'Present (length: ' + '${token}'.length + ')' : '? MISSING - Please login again'}
 Case ID: ${caseId}
 Timestamp: \${new Date().toISOString()}</pre>
                                 </div>
                                 
-                                <h3>⚠️ Possible Causes:</h3>
+                                <h3>?? Possible Causes:</h3>
                                 <ul style="line-height: 1.8;">
                                     <li>Authentication token expired or invalid</li>
                                     <li>Case not found (ID: ${caseId})</li>
@@ -422,9 +479,9 @@ Timestamp: \${new Date().toISOString()}</pre>
                                     <li>investigator_conclusions table issue</li>
                                 </ul>
                                 
-                                <h3>🛠️ Next Steps:</h3>
+                                <h3>??? Next Steps:</h3>
                                 <ol style="line-height: 1.8;">
-                                    <li><strong>Check browser console</strong> (Press F12 → Console tab)</li>
+                                    <li><strong>Check browser console</strong> (Press F12 ? Console tab)</li>
                                     <li><strong>Check server logs:</strong> <code>writable/logs/log-\${new Date().toISOString().split('T')[0]}.log</code></li>
                                     <li><strong>Try:</strong> Logout and login again</li>
                                     <li><strong>Verify:</strong> You're assigned to case ${caseId}</li>
@@ -433,10 +490,10 @@ Timestamp: \${new Date().toISOString()}</pre>
                                 
                                 <div style="margin-top: 30px; display: flex; gap: 10px;">
                                     <button onclick="location.reload()" style="padding: 12px 24px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
-                                        🔄 Try Again
+                                        ?? Try Again
                                     </button>
                                     <button onclick="window.close()" style="padding: 12px 24px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
-                                        ✖ Close Window
+                                        ? Close Window
                                     </button>
                                 </div>
                             </div>
@@ -834,6 +891,7 @@ async function generatePersonCentricReport(reportData, language = 'en') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Full Case Report - ${escapeHtml(caseData.case_number)}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     ${getReportStyles()}
 </head>
 <body>
@@ -901,30 +959,44 @@ async function generatePersonCentricReport(reportData, language = 'en') {
         
         <!-- FOOTER -->
         <div style="margin-top: 60px; padding-top: 30px; border-top: 2px solid #ddd;">
-            ${footerText ? `
-                <div style="white-space: pre-line; line-height: 2;">${escapeHtml(footerText)}</div>
-            ` : `
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px;">
-                    <div>
-                        <strong>${tr.preparedBy}:</strong><br>
-                        ${tr.name}: _________________________<br>
-                        ${tr.signature}: ____________________<br>
-                        ${tr.date}: __________
-                    </div>
-                    <div>
-                        <strong>${tr.reviewedBy}:</strong><br>
-                        ${tr.name}: _________________________<br>
-                        ${tr.signature}: ____________________<br>
-                        ${tr.date}: __________
-                    </div>
-                    <div>
-                        <strong>${tr.approvedBy}:</strong><br>
-                        ${tr.name}: _________________________<br>
-                        ${tr.signature}: ____________________<br>
-                        ${tr.date}: __________
-                    </div>
+            <!-- Signature Blocks and QR Code Section (Side by Side) -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 30px;">
+                <!-- Left side: Signature blocks -->
+                <div style="flex: 1;">
+                    ${footerText ? `
+                        <div style="white-space: pre-line; line-height: 2;">${escapeHtml(footerText)}</div>
+                    ` : `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px;">
+                            <div>
+                                <strong>${tr.preparedBy}:</strong><br>
+                                ${tr.name}: _________________________<br>
+                                ${tr.signature}: ____________________<br>
+                                ${tr.date}: __________
+                            </div>
+                            <div>
+                                <strong>${tr.reviewedBy}:</strong><br>
+                                ${tr.name}: _________________________<br>
+                                ${tr.signature}: ____________________<br>
+                                ${tr.date}: __________
+                            </div>
+                            <div>
+                                <strong>${tr.approvedBy}:</strong><br>
+                                ${tr.name}: _________________________<br>
+                                ${tr.signature}: ____________________<br>
+                                ${tr.date}: __________
+                            </div>
+                        </div>
+                    `}
                 </div>
-            `}
+                
+                <!-- Right side: QR Code -->
+                <div style="width: 120px; text-align: center;">
+                    <div class="qr-code-container" id="qrCode" style="width: 120px; height: 120px; border: 2px solid #000; display: flex; align-items: center; justify-content: center; background: #f9f9f9; margin-bottom: 5px;"></div>
+                    <div style="font-size: 10px; font-weight: bold;">${tr.scanForDetails}</div>
+                </div>
+            </div>
+            
+            <!-- Footer text at the bottom -->
             <div style="margin-top: 30px; text-align: center; color: #666; font-size: 10px; border-top: 1px solid #eee; padding-top: 15px;">
                 <p>${tr.officialPoliceReport} ${formatDate(new Date().toISOString(), true)}</p>
                 <p>${tr.reportId}: ${escapeHtml(caseData.case_number)} | ${tr.generatedBySystem}</p>
@@ -1481,7 +1553,7 @@ function generateCaseOverview(caseData, assignments, tr) {
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
     return `
         <div style="background: linear-gradient(to right, #e8f4f8 0%, #ffffff 100%); padding: 20px; border-radius: 8px; margin-bottom: 25px; border: 3px solid #3498db; box-shadow: 0 3px 8px rgba(0,0,0,0.1);">
-            <h2 style="color: #ffffff; margin-bottom: 15px; font-size: 14pt; padding: 10px 15px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); border-radius: 5px; border-left: 5px solid #2471a3;">📋 ${tr.caseOverview}</h2>
+            <h2 style="color: #ffffff; margin-bottom: 15px; font-size: 14pt; padding: 10px 15px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); border-radius: 5px; border-left: 5px solid #2471a3;">?? ${tr.caseOverview}</h2>
             <table class="info-table" style="margin-top: 15px;">
                 <tr><td>${tr.crimeType}:</td><td>${escapeHtml(caseData.crime_type)}</td></tr>
                 <tr><td>${tr.category}:</td><td>${escapeHtml(caseData.crime_category)}</td></tr>
@@ -1491,7 +1563,7 @@ function generateCaseOverview(caseData, assignments, tr) {
                 <tr><td>${tr.priority}:</td><td><span style="background: ${caseData.priority === 'high' ? '#e74c3c' : caseData.priority === 'medium' ? '#f39c12' : '#95a5a6'}; color: white; padding: 4px 12px; border-radius: 4px; font-size: 10pt; font-weight: bold;">${escapeHtml(caseData.priority || 'N/A').toUpperCase()}</span></td></tr>
             </table>
             <div style="margin-top: 15px; padding: 15px; background: white; border-left: 4px solid #3498db; border-radius: 4px;">
-                <div style="font-weight: 700; color: #2c3e50; margin-bottom: 8px; font-size: 10pt;">📝 ${tr.incidentDescription}:</div>
+                <div style="font-weight: 700; color: #2c3e50; margin-bottom: 8px; font-size: 10pt;">?? ${tr.incidentDescription}:</div>
                 <div style="color: #333; line-height: 1.6;">${escapeHtml(caseData.incident_description).replace(/\n/g, '<br>')}</div>
             </div>
         </div>
@@ -1503,7 +1575,7 @@ function generateConclusionsSection(conclusion, tr) {
     const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     return `
         <div style="background: linear-gradient(to right, #fff9e6 0%, #ffffff 100%); border: 4px solid #e74c3c; padding: 0; margin: 25px 0; page-break-inside: avoid; page-break-before: always; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(231,76,60,0.3);">
-            <h2 class="section-header" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); margin: 0; border-radius: 0; border-bottom: 4px solid #a93226; page-break-after: avoid;">🔍 ${tr.investigatorConclusions}</h2>
+            <h2 class="section-header" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); margin: 0; border-radius: 0; border-bottom: 4px solid #a93226; page-break-after: avoid;">?? ${tr.investigatorConclusions}</h2>
             <div style="padding: 20px;">
                 <h4 style="color: #ffffff; font-size: 13pt; margin-bottom: 15px; padding: 10px 15px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); border-radius: 5px; border-left: 5px solid #a93226;">${escapeHtml(conclusion.conclusion_title)}</h4>
                 <table class="info-table" style="margin-bottom: 15px; border: 3px solid #e74c3c;">
@@ -1512,18 +1584,18 @@ function generateConclusionsSection(conclusion, tr) {
                 </table>
                 
                 <div style="margin-bottom: 15px; padding: 15px; background: white; border: 3px solid #3498db; border-radius: 5px;">
-                    <div style="font-weight: 700; color: #ffffff; margin-bottom: 10px; font-size: 11pt; padding: 8px 12px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); border-radius: 4px;">📝 ${tr.findings}:</div>
+                    <div style="font-weight: 700; color: #ffffff; margin-bottom: 10px; font-size: 11pt; padding: 8px 12px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); border-radius: 4px;">?? ${tr.findings}:</div>
                     <div style="padding: 12px; background: #f8f9fa; border-left: 5px solid #3498db; white-space: pre-wrap; line-height: 1.8; border-radius: 3px;">${escapeHtml(conclusion.findings)}</div>
                 </div>
                 
                 ${conclusion.recommendations ? `
                 <div style="margin-bottom: 15px; padding: 15px; background: white; border: 3px solid #27ae60; border-radius: 5px;">
-                    <div style="font-weight: 700; color: #ffffff; margin-bottom: 10px; font-size: 11pt; padding: 8px 12px; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); border-radius: 4px;">💡 ${tr.recommendations}:</div>
+                    <div style="font-weight: 700; color: #ffffff; margin-bottom: 10px; font-size: 11pt; padding: 8px 12px; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); border-radius: 4px;">?? ${tr.recommendations}:</div>
                     <div style="padding: 12px; background: #f8f9fa; border-left: 5px solid #27ae60; white-space: pre-wrap; line-height: 1.8; border-radius: 3px;">${escapeHtml(conclusion.recommendations)}</div>
                 </div>` : ''}
                 
                 <div style="padding: 15px; background: white; border: 3px solid #e74c3c; border-radius: 5px;">
-                    <div style="font-weight: 700; color: #ffffff; margin-bottom: 10px; font-size: 11pt; padding: 8px 12px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); border-radius: 4px;">✅ ${tr.conclusionSummary}:</div>
+                    <div style="font-weight: 700; color: #ffffff; margin-bottom: 10px; font-size: 11pt; padding: 8px 12px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); border-radius: 4px;">? ${tr.conclusionSummary}:</div>
                     <div style="padding: 12px; background: #f8f9fa; border-left: 5px solid #e74c3c; white-space: pre-wrap; font-weight: 600; line-height: 1.8; border-radius: 3px;">${escapeHtml(conclusion.conclusion_summary)}</div>
                 </div>
             </div>
@@ -1540,7 +1612,7 @@ function generateAccusedSection(accused, tr) {
         return date.toLocaleDateString('en-US', options);
     };
     
-    let html = `<h2 class="section-header" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); page-break-before: always; page-break-after: avoid;">👤 ${tr.section1Accused}</h2>`;
+    let html = `<h2 class="section-header" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); page-break-before: always; page-break-after: avoid;">?? ${tr.section1Accused}</h2>`;
     
     accused.forEach((person, index) => {
         const photoUrl = person.photo_path ? `${window.location.origin}/${person.photo_path.replace(/^\/+/, '')}` : '';
@@ -1552,7 +1624,7 @@ function generateAccusedSection(accused, tr) {
             <div style="background: #e74c3c; padding: 8px 12px; border-bottom: 3px solid #c0392b; display: flex; gap: 12px; align-items: center;">
                 <!-- Info on Left -->
                 <div style="flex: 1;">
-                    <div style="color: white; font-size: 12pt; font-weight: bold; margin-bottom: 6px;">🔴 ${tr.accusedNum} #${index + 1}: ${escapeHtml(fullName)}</div>
+                    <div style="color: white; font-size: 12pt; font-weight: bold; margin-bottom: 6px;">?? ${tr.accusedNum} #${index + 1}: ${escapeHtml(fullName)}</div>
                     <div style="background: white; padding: 6px; border: 2px solid #c0392b; border-radius: 3px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt;">
                             <tr>
@@ -1614,7 +1686,7 @@ function generateAccusersSection(accusers, tr) {
         return date.toLocaleDateString('en-US', options);
     };
     
-    let html = `<h2 class="section-header" style="background: linear-gradient(135deg, #27ae60 0%, #229954 100%); page-break-before: always; page-break-after: avoid;">👥 ${tr.section2Accusers}</h2>`;
+    let html = `<h2 class="section-header" style="background: linear-gradient(135deg, #27ae60 0%, #229954 100%); page-break-before: always; page-break-after: avoid;">?? ${tr.section2Accusers}</h2>`;
     
     accusers.forEach((person, index) => {
         const photoUrl = person.photo_path ? `${window.location.origin}/${person.photo_path.replace(/^\/+/, '')}` : '';
@@ -1626,7 +1698,7 @@ function generateAccusersSection(accusers, tr) {
             <div style="background: #27ae60; padding: 8px 12px; border-bottom: 3px solid #229954; display: flex; gap: 12px; align-items: center;">
                 <!-- Info on Left -->
                 <div style="flex: 1;">
-                    <div style="color: white; font-size: 12pt; font-weight: bold; margin-bottom: 6px;">🟢 ${tr.victimNum} #${index + 1}: ${escapeHtml(fullName)}</div>
+                    <div style="color: white; font-size: 12pt; font-weight: bold; margin-bottom: 6px;">?? ${tr.victimNum} #${index + 1}: ${escapeHtml(fullName)}</div>
                     <div style="background: white; padding: 6px; border: 2px solid #229954; border-radius: 3px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt;">
                             <tr>
@@ -1687,7 +1759,7 @@ function generatePersonStatementsSection(person, tr) {
         return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
     
-    let html = `<div style="margin-bottom: 12px;"><div class="subsection-title" style="padding: 6px 10px; font-size: 10pt; margin-bottom: 8px;">💬 ${tr.statementsNotes}</div>`;
+    let html = `<div style="margin-bottom: 12px;"><div class="subsection-title" style="padding: 6px 10px; font-size: 10pt; margin-bottom: 8px;">?? ${tr.statementsNotes}</div>`;
     
     // Check for both investigation_notes and statementsNotes (for backward compatibility)
     const notes = person.investigation_notes || person.statementsNotes || [];
@@ -1735,15 +1807,15 @@ function generatePersonStatementsSection(person, tr) {
 function generatePersonEvidenceSection(person, tr) {
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
     
-    let html = `<div style="margin-bottom: 12px;"><div class="subsection-title" style="padding: 6px 10px; font-size: 10pt; margin-bottom: 8px;">🗂️ ${tr.evidence}</div>`;
+    let html = `<div style="margin-bottom: 12px;"><div class="subsection-title" style="padding: 6px 10px; font-size: 10pt; margin-bottom: 8px;">??? ${tr.evidence}</div>`;
     
     if (person.evidence && person.evidence.length > 0) {
         html += '<table class="info-table" style="font-size: 8pt;">';
         html += '<tr style="background: #f8f9fa; font-size: 8pt;"><td style="padding: 4px 6px;"><strong>#</strong></td><td style="padding: 4px 6px;"><strong>Type</strong></td><td style="padding: 4px 6px;"><strong>Description</strong></td><td style="padding: 4px 6px;"><strong>Date</strong></td></tr>';
         
         person.evidence.forEach((ev, idx) => {
-            const typeIcons = { photo: '📷', video: '🎥', audio: '🎤', document: '📄', physical: '📦', digital: '💾' };
-            const icon = typeIcons[ev.evidence_type] || '📁';
+            const typeIcons = { photo: '??', video: '??', audio: '??', document: '??', physical: '??', digital: '??' };
+            const icon = typeIcons[ev.evidence_type] || '??';
             
             html += `
             <tr>
@@ -1777,7 +1849,7 @@ function generateSupportingWitnessesSection(person, tr) {
         return date.toLocaleDateString('en-US', options);
     };
     
-    let html = `<div style="margin-bottom: 12px;"><div class="subsection-title" style="padding: 6px 10px; font-size: 10pt; margin-bottom: 8px;">👥 ${tr.supportingWitnesses}</div>`;
+    let html = `<div style="margin-bottom: 12px;"><div class="subsection-title" style="padding: 6px 10px; font-size: 10pt; margin-bottom: 8px;">?? ${tr.supportingWitnesses}</div>`;
     
     if (person.supporting_witnesses && person.supporting_witnesses.length > 0) {
         person.supporting_witnesses.forEach((witness, idx) => {
@@ -1789,7 +1861,7 @@ function generateSupportingWitnessesSection(person, tr) {
                 <!-- Witness Header -->
                 <div style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid #27ae60;">
                     <div style="flex: 1;">
-                        <div style="font-weight: bold; font-size: 10pt; color: #27ae60; margin-bottom: 4px;">👤 ${tr.witnessNum} #${idx + 1}: ${escapeHtml(fullName)}</div>
+                        <div style="font-weight: bold; font-size: 10pt; color: #27ae60; margin-bottom: 4px;">?? ${tr.witnessNum} #${idx + 1}: ${escapeHtml(fullName)}</div>
                         <table style="width: 100%; border-collapse: collapse; font-size: 8pt;">
                             <tr>
                                 <td style="padding: 2px 4px; width: 20%; font-weight: 600; color: #555;">${tr.id}:</td>
@@ -1822,7 +1894,7 @@ function generateSupportingWitnessesSection(person, tr) {
                 <!-- Witness Statements & Notes -->
                 ${(witness.statement || (witness.investigation_notes && witness.investigation_notes.length > 0)) ? `
                 <div style="margin-bottom: 6px;">
-                    <div style="font-weight: 600; font-size: 8.5pt; color: #27ae60; margin-bottom: 4px;">💬 ${tr.statementsNotesLabel}:</div>
+                    <div style="font-weight: 600; font-size: 8.5pt; color: #27ae60; margin-bottom: 4px;">?? ${tr.statementsNotesLabel}:</div>
                     ${witness.statement ? `
                     <div style="background: white; padding: 6px; border-left: 3px solid #27ae60; border-radius: 3px; margin-bottom: 4px;">
                         <div style="font-weight: 600; font-size: 8pt; color: #27ae60;">${tr.officialStatement}:</div>
@@ -1839,7 +1911,7 @@ function generateSupportingWitnessesSection(person, tr) {
                 <!-- Witness Evidence -->
                 ${witness.evidence && witness.evidence.length > 0 ? `
                 <div>
-                    <div style="font-weight: 600; font-size: 8.5pt; color: #27ae60; margin-bottom: 4px;">🗂️ EVIDENCE (${witness.evidence.length}):</div>
+                    <div style="font-weight: 600; font-size: 8.5pt; color: #27ae60; margin-bottom: 4px;">??? EVIDENCE (${witness.evidence.length}):</div>
                     <table style="width: 100%; border-collapse: collapse; font-size: 7.5pt; border: 1px solid #ddd;">
                         <tr style="background: #f0f0f0;">
                             <td style="padding: 3px 5px; font-weight: 600; width: 5%;">#</td>
@@ -1848,8 +1920,8 @@ function generateSupportingWitnessesSection(person, tr) {
                             <td style="padding: 3px 5px; font-weight: 600; width: 20%;">Date</td>
                         </tr>
                         ${witness.evidence.map((ev, evIdx) => {
-                            const typeIcons = { photo: '📷', video: '🎥', audio: '🎤', document: '📄', physical: '📦', digital: '💾' };
-                            const icon = typeIcons[ev.evidence_type] || '📁';
+                            const typeIcons = { photo: '??', video: '??', audio: '??', document: '??', physical: '??', digital: '??' };
+                            const icon = typeIcons[ev.evidence_type] || '??';
                             return `
                             <tr style="border-bottom: 1px solid #eee;">
                                 <td style="padding: 3px 5px; text-align: center;">${evIdx + 1}</td>
@@ -1882,7 +1954,7 @@ function generateWitnessesSection(witnesses, tr) {
         return date.toLocaleDateString('en-US', options);
     };
     
-    let html = `<h2 class="section-header" style="background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); page-break-before: always; page-break-after: avoid;">👁️ ${tr.section3Witnesses}</h2>`;
+    let html = `<h2 class="section-header" style="background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); page-break-before: always; page-break-after: avoid;">??? ${tr.section3Witnesses}</h2>`;
     
     witnesses.forEach((person, index) => {
         const photoUrl = person.photo_path ? `${window.location.origin}/${person.photo_path.replace(/^\/+/, '')}` : '';
@@ -1894,7 +1966,7 @@ function generateWitnessesSection(witnesses, tr) {
             <div style="background: #95a5a6; padding: 8px 12px; border-bottom: 3px solid #7f8c8d; display: flex; gap: 12px; align-items: center;">
                 <!-- Info on Left -->
                 <div style="flex: 1;">
-                    <div style="color: white; font-size: 12pt; font-weight: bold; margin-bottom: 6px;">👁️ ${tr.witnessNum} #${index + 1}: ${escapeHtml(fullName)}</div>
+                    <div style="color: white; font-size: 12pt; font-weight: bold; margin-bottom: 6px;">??? ${tr.witnessNum} #${index + 1}: ${escapeHtml(fullName)}</div>
                     <div style="background: white; padding: 6px; border: 2px solid #7f8c8d; border-radius: 3px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt;">
                             <tr>
@@ -1949,14 +2021,14 @@ function generateWitnessesSection(witnesses, tr) {
 function generateCrimeSceneEvidenceSection(evidence, tr) {
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
     
-    let html = `<h2 class="section-header" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); page-break-before: always; page-break-after: avoid;">🔍 ${tr.section4CrimeScene}</h2>`;
+    let html = `<h2 class="section-header" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); page-break-before: always; page-break-after: avoid;">?? ${tr.section4CrimeScene}</h2>`;
     html += '<div style="background: #fef5e7; padding: 15px; margin: 15px 0; border-radius: 5px; border: 1px solid #f39c12;">';
     html += '<table class="info-table">';
     html += `<tr style="background: #fff; font-weight: bold;"><td style="width: 5%;">${tr.number}</td><td style="width: 15%;">${tr.type}</td><td style="width: 35%;">${tr.description}</td><td style="width: 20%;">${tr.collected}</td><td style="width: 25%;">${tr.locationCollected}</td></tr>`;
     
     evidence.forEach((ev, idx) => {
-        const typeIcons = { photo: '📷', video: '🎥', audio: '🎤', document: '📄', physical: '📦', digital: '💾' };
-        const icon = typeIcons[ev.evidence_type] || '📁';
+        const typeIcons = { photo: '??', video: '??', audio: '??', document: '??', physical: '??', digital: '??' };
+        const icon = typeIcons[ev.evidence_type] || '??';
         
         html += `
         <tr>
@@ -1970,7 +2042,7 @@ function generateCrimeSceneEvidenceSection(evidence, tr) {
                 ${ev.description ? `<br><span style="font-size: 9pt; color: #666;">${escapeHtml(ev.description)}</span>` : ''}
             </td>
             <td style="font-size: 9pt;">${formatDate(ev.collected_at)}</td>
-            <td style="font-size: 9pt;">${ev.location_collected ? `📍 ${escapeHtml(ev.location_collected)}` : 'N/A'}</td>
+            <td style="font-size: 9pt;">${ev.location_collected ? `?? ${escapeHtml(ev.location_collected)}` : 'N/A'}</td>
         </tr>`;
     });
     
@@ -2185,7 +2257,7 @@ async function generatePrintableHTML(reportData, language = 'en') {
     const { case: caseData, parties, evidence, assignments, history, court_assignment, created_by } = reportData;
     
     // Get translations for selected language
-    const t = translations[language];
+    const tr = translations[language] || translations.en;
     
     // Helper function to escape HTML
     const esc = (str) => {
@@ -2318,7 +2390,7 @@ async function generatePrintableHTML(reportData, language = 'en') {
                                          'style="max-width: 100%; height: auto; border: 3px solid #28a745; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" ' +
                                          'onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'block\';" />' +
                                     '<div style="display:none; padding: 15px; background: #f8d7da; border: 2px solid #f5c6cb; border-radius: 8px; color: #721c24;">' +
-                                        '📷 Image not available: ' + esc(fileName) +
+                                        '?? Image not available: ' + esc(fileName) +
                                     '</div>' +
                                 '</div>';
                             } else if (ev.evidence_type === 'video') {
@@ -2330,12 +2402,12 @@ async function generatePrintableHTML(reportData, language = 'en') {
                                         '<source src="' + fileUrl + '" type="video/ogg">' +
                                         'Your browser does not support the video tag.' +
                                     '</video>' +
-                                    '<div style="text-align: center; color: white; margin-top: 8px; font-size: 10pt;">🎥 ' + esc(fileName) + '</div>' +
+                                    '<div style="text-align: center; color: white; margin-top: 8px; font-size: 10pt;">?? ' + esc(fileName) + '</div>' +
                                 '</div>';
                             } else if (ev.evidence_type === 'audio') {
                                 // Display audio EMBEDDED with HTML5 player
                                 evidenceHTML += '<div style="margin-top: 15px; padding: 15px; background: #f3e5f5; border: 2px solid #6f42c1; border-radius: 8px;">' +
-                                    '<div style="font-weight: bold; margin-bottom: 10px; color: #6f42c1;">🎤 Audio Recording: ' + esc(fileName) + '</div>' +
+                                    '<div style="font-weight: bold; margin-bottom: 10px; color: #6f42c1;">?? Audio Recording: ' + esc(fileName) + '</div>' +
                                     '<audio controls style="width: 100%;" preload="metadata">' +
                                         '<source src="' + fileUrl + '" type="audio/mpeg">' +
                                         '<source src="' + fileUrl + '" type="audio/wav">' +
@@ -2348,17 +2420,17 @@ async function generatePrintableHTML(reportData, language = 'en') {
                                 if (fileExtension === 'pdf') {
                                     // Embed PDF viewer (shows in browser, hidden in print with message)
                                     evidenceHTML += '<div style="margin-top: 15px; border: 3px solid #ffc107; border-radius: 8px; overflow: hidden;">' +
-                                        '<div style="background: #fff3cd; padding: 10px; font-weight: bold; color: #856404;">📄 PDF Document: ' + esc(fileName) + '</div>' +
+                                        '<div style="background: #fff3cd; padding: 10px; font-weight: bold; color: #856404;">?? PDF Document: ' + esc(fileName) + '</div>' +
                                         '<iframe src="' + fileUrl + '" style="width: 100%; height: 600px; border: none;" type="application/pdf"></iframe>' +
                                         '<p style="display: none; padding: 15px; background: #fff3cd; color: #856404; text-align: center; border-top: 2px dashed #ffc107;">' +
-                                            '📄 PDF Document: <strong>' + esc(fileName) + '</strong><br>' +
+                                            '?? PDF Document: <strong>' + esc(fileName) + '</strong><br>' +
                                             '<em style="font-size: 9pt;">(PDF content viewable in browser version - not embedded in print)</em>' +
                                         '</p>' +
                                     '</div>';
                                 } else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExtension)) {
                                     // Display image document
                                     evidenceHTML += '<div style="margin-top: 15px; text-align: center; background: #fff3cd; padding: 15px; border: 3px solid #ffc107; border-radius: 8px;">' +
-                                        '<div style="font-weight: bold; margin-bottom: 10px; color: #856404;">📄 Document Image: ' + esc(fileName) + '</div>' +
+                                        '<div style="font-weight: bold; margin-bottom: 10px; color: #856404;">?? Document Image: ' + esc(fileName) + '</div>' +
                                         '<img src="' + fileUrl + '" alt="Document" style="max-width: 100%; height: auto; border: 2px solid #ddd; border-radius: 4px;" />' +
                                     '</div>';
                                 } else {
@@ -2368,7 +2440,7 @@ async function generatePrintableHTML(reportData, language = 'en') {
                                             '<i class="fas fa-file-alt" style="font-size: 32pt; color: #856404;"></i>' +
                                             '<div>' +
                                                 '<strong>Document:</strong> ' + esc(fileName) + '<br>' +
-                                                '<a href="' + fileUrl + '" target="_blank" style="color: #007bff; text-decoration: underline; font-weight: bold;">📥 Download/View Document</a>' +
+                                                '<a href="' + fileUrl + '" target="_blank" style="color: #007bff; text-decoration: underline; font-weight: bold;">?? Download/View Document</a>' +
                                             '</div>' +
                                         '</div>' +
                                     '</div>';
@@ -2380,7 +2452,7 @@ async function generatePrintableHTML(reportData, language = 'en') {
                                         '<i class="fas fa-file" style="font-size: 32pt; color: #6c757d;"></i>' +
                                         '<div>' +
                                             '<strong>File:</strong> ' + esc(fileName) + '<br>' +
-                                            '<a href="' + fileUrl + '" target="_blank" style="color: #007bff; text-decoration: underline; font-weight: bold;">📥 Download/View File</a>' +
+                                            '<a href="' + fileUrl + '" target="_blank" style="color: #007bff; text-decoration: underline; font-weight: bold;">?? Download/View File</a>' +
                                         '</div>' +
                                     '</div>' +
                                 '</div>';
@@ -2417,7 +2489,7 @@ async function generatePrintableHTML(reportData, language = 'en') {
                                 `}
                                 <div style="flex: 1;">
                                     <div style="font-size: 14pt; font-weight: bold; color: #0c5460; margin-bottom: 8px;">
-                                        👤 Witness #${idx + 1}: ${esc(witnessName)}
+                                        ?? Witness #${idx + 1}: ${esc(witnessName)}
                                     </div>
                                     ${witness.national_id ? `<div style="margin-bottom: 5px;"><strong>ID:</strong> ${esc(witness.national_id)}</div>` : ''}
                                     ${witness.phone ? `<div style="margin-bottom: 5px;"><strong>Phone:</strong> ${esc(witness.phone)}</div>` : ''}
@@ -2426,7 +2498,7 @@ async function generatePrintableHTML(reportData, language = 'en') {
                                     
                                     ${witness.statement ? `
                                         <div style="margin-top: 12px; padding: 12px; background: #e7f3ff; border-left: 4px solid #17a2b8; border-radius: 4px;">
-                                            <div style="font-weight: bold; color: #0c5460; margin-bottom: 8px;">💬 Witness Statement:</div>
+                                            <div style="font-weight: bold; color: #0c5460; margin-bottom: 8px;">?? Witness Statement:</div>
                                             <div style="white-space: pre-wrap; line-height: 1.6;">${esc(witness.statement)}</div>
                                             ${witness.statement_date ? `<div style="margin-top: 8px; font-size: 9pt; color: #666;"><em>Statement Date: ${formatDate(witness.statement_date, true)}</em></div>` : ''}
                                         </div>
@@ -2494,26 +2566,26 @@ async function generatePrintableHTML(reportData, language = 'en') {
                         <h4 class="person-name">${esc(party.full_name)}</h4>
                         <div class="person-details-grid">
                             ${party.id_number ? `<div class="info-pair">
-                                <span class="info-label">${t.id}:</span>
+                                <span class="info-label">${tr.id}:</span>
                                 <span class="info-value">${esc(party.id_number)}</span>
                             </div>` : ''}
                             ${party.gender ? `<div class="info-pair">
-                                <span class="info-label">${t.gender}:</span>
+                                <span class="info-label">${tr.gender}:</span>
                                 <span class="info-value">${esc(party.gender)}</span>
                             </div>` : ''}
                             ${party.phone ? `<div class="info-pair">
-                                <span class="info-label">${t.phone}:</span>
+                                <span class="info-label">${tr.phone}:</span>
                                 <span class="info-value">${esc(party.phone)}</span>
                             </div>` : ''}
                             ${party.address ? `<div class="info-pair">
-                                <span class="info-label">${t.address}:</span>
+                                <span class="info-label">${tr.address}:</span>
                                 <span class="info-value">${esc(party.address)}</span>
                             </div>` : ''}
                         </div>
                     </div>
                 </div>
                 ${party.statement ? `<div class="person-statement">
-                    <div class="statement-label">${t.statement}:</div>
+                    <div class="statement-label">${tr.statement}:</div>
                     <div class="statement-text">${esc(party.statement)}</div>
                 </div>` : ''}
             </div>
@@ -2580,6 +2652,7 @@ async function generatePrintableHTML(reportData, language = 'en') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Case Report - ${esc(caseData.case_number)}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -3625,7 +3698,7 @@ async function generatePrintableHTML(reportData, language = 'en') {
     </style>
 </head>
 <body>
-    <button class="print-btn" onclick="window.print()">${t.printReport}</button>
+    <button class="print-btn" onclick="window.print()">${tr.printReport}</button>
     
     <div class="report-container">
         <!-- Professional Letterhead -->
@@ -3645,16 +3718,16 @@ async function generatePrintableHTML(reportData, language = 'en') {
             <div class="case-numbers-row">
                 <div class="case-numbers-left">
                     <div class="case-number-item">
-                        <h3>${t.caseNumber}</h3>
+                        <h3>${tr.caseNumber}</h3>
                         <p>${esc(caseData.case_number)}</p>
                     </div>
                     <div class="case-number-item">
-                        <h3>${t.obNumber}</h3>
+                        <h3>${tr.obNumber}</h3>
                         <p>${esc(caseData.ob_number)}</p>
                     </div>
                 </div>
                 <div class="report-date">
-                    <h3>${t.reportDate}</h3>
+                    <h3>${tr.reportDate}</h3>
                     <p>${formatDate(new Date(), true)}</p>
                 </div>
             </div>
@@ -3679,43 +3752,43 @@ async function generatePrintableHTML(reportData, language = 'en') {
         
         <!-- Case Information -->
         <div class="report-meta">
-            <div class="meta-title">${t.caseInformation}</div>
+            <div class="meta-title">${tr.caseInformation}</div>
             <div class="meta-grid">
                 <div class="meta-item">
-                    <span class="meta-label">${t.status}</span>
+                    <span class="meta-label">${tr.status}</span>
                     <span class="meta-value">${esc(caseData.status).toUpperCase().replace(/_/g, ' ')}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">${t.priority}</span>
+                    <span class="meta-label">${tr.priority}</span>
                     <span class="meta-value">${esc(caseData.priority || 'N/A').toUpperCase()}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">${t.crimeCategory}</span>
+                    <span class="meta-label">${tr.crimeCategory}</span>
                     <span class="meta-value">${esc(caseData.crime_category || 'N/A')}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">${t.crimeType}</span>
+                    <span class="meta-label">${tr.crimeType}</span>
                     <span class="meta-value">${esc(caseData.crime_type)}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">${t.incidentDate}</span>
+                    <span class="meta-label">${tr.incidentDate}</span>
                     <span class="meta-value">${formatDate(caseData.incident_date, true)}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">${t.location}</span>
+                    <span class="meta-label">${tr.location}</span>
                     <span class="meta-value">${esc(caseData.incident_location || 'N/A')}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">${t.createdBy}</span>
+                    <span class="meta-label">${tr.createdBy}</span>
                     <span class="meta-value">${esc(created_by?.full_name || 'N/A')}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">${t.createdAt}</span>
+                    <span class="meta-label">${tr.createdAt}</span>
                     <span class="meta-value">${formatDate(caseData.created_at, true)}</span>
                 </div>
                 ${caseData.court_status && caseData.court_status !== 'not_sent' ? `
                 <div class="meta-item" style="grid-column: 1 / -1;">
-                    <span class="meta-label">${t.courtStatus}</span>
+                    <span class="meta-label">${tr.courtStatus}</span>
                     <span class="meta-value">${esc(caseData.court_status).toUpperCase().replace(/_/g, ' ')}</span>
                 </div>` : ''}
             </div>
@@ -3725,40 +3798,40 @@ async function generatePrintableHTML(reportData, language = 'en') {
         <div class="report-section">
             <h2 class="section-header">
                 <span class="section-icon"></span>
-                ${t.incidentDescription}
+                ${tr.incidentDescription}
             </h2>
             <div class="section-body">
                 <div class="description-box">
-                    ${esc(caseData.incident_description || t.noDescription).replace(/\n/g, '<br>')}
+                    ${esc(caseData.incident_description || tr.noDescription).replace(/\n/g, '<br>')}
                 </div>
             </div>
         </div>
         
         <!-- Parties -->
-        ${generatePartiesHTML(parties.accused, t.accusedPersons, 'accused-icon')}
-        ${generatePartiesHTML(parties.victims, t.accusersVictims, 'victim-icon')}
+        ${generatePartiesHTML(parties.accused, tr.accusedPersons, 'accused-icon')}
+        ${generatePartiesHTML(parties.victims, tr.accusersVictims, 'victim-icon')}
         
         <!-- Investigators -->
         ${assignments && assignments.length > 0 ? `
         <div class="report-section">
             <h2 class="section-header">
                 <span class="section-icon"></span>
-                ${t.assignedInvestigators}
+                ${tr.assignedInvestigators}
             </h2>
             <div class="section-body">
                 <table>
                     <thead>
                         <tr>
-                            <th>${t.name}</th>
-                            <th>${t.role}</th>
-                            <th>${t.assignedDate}</th>
+                            <th>${tr.name}</th>
+                            <th>${tr.role}</th>
+                            <th>${tr.assignedDate}</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${assignments.map(assignment => `
                         <tr>
                             <td>${esc(assignment.investigator_name)}</td>
-                            <td>${assignment.is_lead_investigator ? t.leadInvestigator : t.supportInvestigator}</td>
+                            <td>${assignment.is_lead_investigator ? tr.leadInvestigator : tr.supportInvestigator}</td>
                             <td>${formatDate(assignment.assigned_at)}</td>
                         </tr>
                         `).join('')}
@@ -3772,30 +3845,30 @@ async function generatePrintableHTML(reportData, language = 'en') {
         <div class="report-section">
             <h2 class="section-header">
                 <span class="section-icon"></span>
-                ${t.courtAssignment}
+                ${tr.courtAssignment}
             </h2>
             <div class="section-body">
                 <div class="report-meta">
                     <div class="meta-grid">
                         <div class="meta-item">
-                            <span class="meta-label">${t.assignedTo}</span>
+                            <span class="meta-label">${tr.assignedTo}</span>
                             <span class="meta-value">${esc(court_assignment.investigator_name || 'N/A')}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">${t.assignedBy}</span>
+                            <span class="meta-label">${tr.assignedBy}</span>
                             <span class="meta-value">${esc(court_assignment.assigned_by_name || 'N/A')}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">${t.deadline}</span>
+                            <span class="meta-label">${tr.deadline}</span>
                             <span class="meta-value">${formatDate(court_assignment.deadline)}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">${t.status}</span>
+                            <span class="meta-label">${tr.status}</span>
                             <span class="meta-value">${esc(court_assignment.status)}</span>
                         </div>
                         ${court_assignment.notes ? `
                         <div class="meta-item" style="grid-column: 1 / -1;">
-                            <span class="meta-label">${t.notes}</span>
+                            <span class="meta-label">${tr.notes}</span>
                             <span class="meta-value">${esc(court_assignment.notes)}</span>
                         </div>` : ''}
                     </div>
@@ -3814,22 +3887,25 @@ async function generatePrintableHTML(reportData, language = 'en') {
                         <div class="footer-text">${esc(footerText).replace(/\n/g, '<br>')}</div>
                     ` : `
                         <div class="footer-text">
-                            <strong>${t.preparedBy}:</strong><br>
-                            ${t.name}: _______________________________<br>
-                            ${t.signature}: __________________________<br>
-                            ${t.date}: _______________<br><br>
-                            <strong>${t.reviewedBy}:</strong><br>
-                            ${t.name}: _______________________________<br>
-                            ${t.signature}: __________________________<br>
-                            ${t.date}: _______________
+                            <strong>${tr.preparedBy}:</strong><br>
+                            ${tr.name}: _______________________________<br>
+                            ${tr.signature}: __________________________<br>
+                            ${tr.date}: _______________<br><br>
+                            <strong>${tr.reviewedBy}:</strong><br>
+                            ${tr.name}: _______________________________<br>
+                            ${tr.signature}: __________________________<br>
+                            ${tr.date}: _______________
                         </div>
                     `}
                 </div>
                 <div class="footer-right">
                     <div class="qr-code-container" id="qrCode">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent('Case: ' + caseData.case_number + ' | OB: ' + caseData.ob_number + ' | Date: ' + formatDate(new Date()))}" alt="QR Code" style="width: 100%; height: 100%;" />
+                        <!-- QR Code will be generated here -->
                     </div>
-                    <div class="qr-label">${t.scanForDetails}</div>
+                    <div class="qr-label">${tr.scanForDetails}</div>
+                    <div style="font-size: 10px; text-align: center; margin-top: 5px; color: #666;">
+                        ${caseData.verification_code || 'Verification Code: N/A'}
+                    </div>
                 </div>
             </div>
         </div>

@@ -123,14 +123,17 @@ class AssignmentController extends ResourceController
             
             // Notify investigator
             try {
-                $notificationModel = model('App\Models\NotificationModel');
-                $notificationModel->skipValidation(true)->insert([
-                    'user_id' => $investigatorId,
-                    'case_id' => $id,
-                    'type' => 'case_assigned',
+                $db->table('notifications')->insert([
+                    'user_id' => (int)$investigatorId,
+                    'notification_type' => 'case_assigned',
                     'title' => 'New Case Assigned',
                     'message' => "Case {$case['case_number']} has been assigned to you",
-                    'link' => '/investigations/' . $id
+                    'link_entity_type' => 'cases',
+                    'link_entity_id' => (int)$id,
+                    'link_url' => '/investigations/' . $id,
+                    'priority' => 'high',
+                    'is_read' => 0,
+                    'created_at' => date('Y-m-d H:i:s')
                 ]);
             } catch (\Exception $e) {
                 log_message('error', 'Failed to create notification: ' . $e->getMessage());

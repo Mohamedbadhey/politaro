@@ -8,6 +8,9 @@ use CodeIgniter\Router\RouteCollection;
 // Serve static login page directly
 $routes->get('/', 'Home::index');
 
+// Public Certificate Verification Route (no auth required)
+$routes->get('verify-certificate/(:any)', 'Investigation\CertificateController::verify/$1');
+
 /*
  * --------------------------------------------------------------------
  * POLICE CASE MANAGEMENT SYSTEM - API Routes
@@ -138,6 +141,12 @@ $routes->group('station', ['filter' => ['auth:admin,super_admin']], function($ro
     // Assignments
     $routes->post('assignments', 'Station\AssignmentController::create');
     $routes->get('assignments', 'Station\AssignmentController::index');
+    
+    // Case Tracking Dashboard
+    $routes->get('cases/assigned-tracking', 'Station\CaseTrackingController::getAssignedCases');
+    $routes->get('investigators/performance', 'Station\CaseTrackingController::getInvestigatorPerformance');
+    $routes->get('cases/(:num)/team', 'Station\CaseTrackingController::getCaseTeam/$1');
+    $routes->post('cases/(:num)/deadline', 'Station\CaseTrackingController::updateDeadline/$1');
 });
 
 // Investigation Routes
@@ -218,6 +227,31 @@ $routes->group('investigation', ['filter' => ['auth:investigator,admin,super_adm
     // Timeline
     $routes->post('cases/(:num)/timeline', 'Investigation\CaseController::addTimelineEntry/$1');
     $routes->get('cases/(:num)/timeline', 'Investigation\CaseController::getTimeline/$1');
+    
+    // Medical Examination Forms
+    $routes->post('medical-forms', 'Investigation\MedicalFormController::save');
+    $routes->put('medical-forms/(:num)', 'Investigation\MedicalFormController::save'); // Update form
+    $routes->get('medical-forms/my-forms', 'Investigation\MedicalFormController::getMyForms');
+    $routes->get('medical-forms/case/(:num)', 'Investigation\MedicalFormController::getByCaseId/$1');
+    $routes->get('medical-forms/person/(:num)', 'Investigation\MedicalFormController::getByPersonId/$1');
+    $routes->get('medical-forms/(:num)', 'Investigation\MedicalFormController::getById/$1');
+    $routes->delete('medical-forms/(:num)', 'Investigation\MedicalFormController::delete/$1');
+    
+    // Public verification endpoint (no auth required)
+    $routes->get('verify-medical-form', 'Investigation\MedicalFormController::verify');
+});
+
+// Public report viewing (no authentication required)
+$routes->get('public/report/(:segment)', 'Investigation\ReportController::viewPublic/$1');
+
+$routes->group('investigation', ['filter' => ['auth:investigator,admin,super_admin']], function($routes) {
+    // Non-Criminal Certificates
+    $routes->get('certificates', 'Investigation\CertificateController::index');
+    $routes->post('certificates', 'Investigation\CertificateController::create');
+    $routes->get('certificates/(:num)', 'Investigation\CertificateController::show/$1');
+    $routes->put('certificates/(:num)', 'Investigation\CertificateController::update/$1');
+    $routes->delete('certificates/(:num)', 'Investigation\CertificateController::delete/$1');
+    $routes->get('certificates/(:num)/verification-url', 'Investigation\CertificateController::getVerificationUrl/$1');
 });
 
 // Court Routes

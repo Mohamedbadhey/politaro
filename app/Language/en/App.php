@@ -224,6 +224,10 @@ return [
     'incident_entry_desc' => 'Record incidents without immediate victim or accused',
     'create_incident' => 'Create New Incident Report',
     'incident_entry_note' => 'Parties (victim/accused) can be added later during investigation',
+    
+    // Case Tracking Dashboard
+    'case_tracking' => 'Case Tracking',
+    'case_tracking_desc' => 'Monitor assigned cases and investigator performance',
     'incident_details' => 'Incident Details',
     'crime_classification' => 'Crime Classification',
     'create_incident_btn' => 'Create Incident Report',
@@ -1075,4 +1079,8 @@ return [
     'email' => 'Email',
     'collected_from' => 'Collected From',
     'evidence_number' => 'Evidence Number',
+    'medical_examination_form' => 'Medical Examination Form',
+    'medical_forms_dashboard' => 'Medical Forms Dashboard',
+    'non_criminal_certificate' => 'Non-Criminal Certificate',
+    'certificates_dashboard' => 'Certificates Dashboard',
 ];

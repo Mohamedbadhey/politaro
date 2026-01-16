@@ -111,6 +111,7 @@ class AuthFilter implements FilterInterface
             $request->userRole = $user['role'];
             $request->centerId = $user['center_id'];
             $request->username = $user['username'];
+            $request->user = $user; // Add this for controllers that expect it
             
         } catch (\Exception $e) {
             return $response->setJSON([

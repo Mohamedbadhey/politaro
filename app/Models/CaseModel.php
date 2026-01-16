@@ -31,7 +31,25 @@ class CaseModel extends BaseModel
         'is_sensitive' => 'permit_empty|in_list[0,1]'
     ];
     
-    protected $beforeInsert = ['generateCaseNumbers'];
+    protected $beforeInsert = ['generateCaseNumbers', 'ensureStatusDefault'];
+    
+    /**
+     * Ensure status has a default value (never empty string)
+     */
+    protected function ensureStatusDefault(array $data)
+    {
+        log_message('debug', 'ensureStatusDefault called - status before: ' . json_encode($data['data']['status'] ?? 'NOT SET'));
+        
+        // If status is not set, empty, or null, default to 'draft'
+        if (!isset($data['data']['status']) || $data['data']['status'] === '' || $data['data']['status'] === null) {
+            log_message('debug', 'ensureStatusDefault - Setting status to draft');
+            $data['data']['status'] = 'draft';
+        }
+        
+        log_message('debug', 'ensureStatusDefault called - status after: ' . json_encode($data['data']['status']));
+        
+        return $data;
+    }
     
     /**
      * Generate unique case and OB numbers
@@ -137,14 +155,15 @@ class CaseModel extends BaseModel
         
         $this->update($caseId, $updateData);
         
-        // Log status change
-        $historyModel = model('App\Models\CaseStatusHistoryModel');
-        $historyModel->insert([
-            'case_id' => $caseId,
-            'old_status' => $previousStatus,
+        // Log status change - use direct DB query to avoid model timestamp issues
+        $db = \Config\Database::connect();
+        $db->table('case_status_history')->insert([
+            'case_id' => (int)$caseId,
+            'previous_status' => $previousStatus,
             'new_status' => $newStatus,
-            'changed_by' => $userId,
-            'change_reason' => $reason
+            'changed_by' => (int)$userId,
+            'reason' => $reason,
+            'changed_at' => date('Y-m-d H:i:s')
         ]);
         
         return true;

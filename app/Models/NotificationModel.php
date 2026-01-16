@@ -46,10 +46,10 @@ class NotificationModel extends Model
      */
     public function getUnreadNotifications(int $userId)
     {
-        return $this->where('user_id', $userId)
-                    ->where('is_read', 0)
-                    ->orderBy('created_at', 'DESC')
-                    ->findAll();
+        $this->where('user_id', $userId);
+        $this->where('is_read', 0);
+        $this->orderBy('created_at', 'DESC');
+        return $this->findAll();
     }
     
     /**
@@ -57,10 +57,10 @@ class NotificationModel extends Model
      */
     public function getUserNotifications(int $userId, int $limit = 50)
     {
-        return $this->where('user_id', $userId)
-                    ->orderBy('created_at', 'DESC')
-                    ->limit($limit)
-                    ->findAll();
+        $this->where('user_id', $userId);
+        $this->orderBy('created_at', 'DESC');
+        $this->limit($limit);
+        return $this->findAll();
     }
     
     /**
@@ -79,13 +79,13 @@ class NotificationModel extends Model
      */
     public function markAllAsRead(int $userId): bool
     {
-        return $this->where('user_id', $userId)
-                    ->where('is_read', 0)
-                    ->set([
-                        'is_read' => 1,
-                        'read_at' => date('Y-m-d H:i:s')
-                    ])
-                    ->update();
+        $this->where('user_id', $userId);
+        $this->where('is_read', 0);
+        $this->set([
+            'is_read' => 1,
+            'read_at' => date('Y-m-d H:i:s')
+        ]);
+        return $this->update();
     }
     
     /**
@@ -93,8 +93,8 @@ class NotificationModel extends Model
      */
     public function getUnreadCount(int $userId): int
     {
-        return $this->where('user_id', $userId)
-                    ->where('is_read', 0)
-                    ->countAllResults();
+        $this->where('user_id', $userId);
+        $this->where('is_read', 0);
+        return $this->countAllResults();
     }
 }

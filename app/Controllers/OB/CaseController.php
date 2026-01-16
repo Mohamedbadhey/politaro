@@ -222,18 +222,21 @@ class CaseController extends ResourceController
             ]);
             
             // Notify admin that this is an incident without parties
-            $notificationModel = model('App\Models\NotificationModel');
-            $admins = model('App\Models\UserModel')->getUsersByCenter($case['center_id'], 'admin');
+            $admins = model('App\Models\UserModel')->getUsersByCenter((int)$case['center_id'], 'admin');
+            $db = \Config\Database::connect();
             
             foreach ($admins as $admin) {
-                $notificationModel->insert([
-                    'user_id' => $admin['id'],
-                    'notification_type' => 'incident_reported',
+                $db->table('notifications')->insert([
+                    'user_id' => (int)$admin['id'],
+                    'notification_type' => 'system_alert',
                     'title' => 'Incident Reported (No Parties)',
                     'message' => "Incident {$case['case_number']} has been reported without party information. Assign to investigator to add parties.",
                     'link_entity_type' => 'cases',
-                    'link_entity_id' => $id,
-                    'priority' => 'medium'
+                    'link_entity_id' => (int)$id,
+                    'link_url' => '/cases/view/' . $id,
+                    'priority' => 'medium',
+                    'is_read' => 0,
+                    'created_at' => date('Y-m-d H:i:s')
                 ]);
             }
             
@@ -246,18 +249,21 @@ class CaseController extends ResourceController
         $caseModel->updateStatus($id, 'submitted', $this->request->userId);
         
         // Create notification for admin
-        $notificationModel = model('App\Models\NotificationModel');
-        $admins = model('App\Models\UserModel')->getUsersByCenter($case['center_id'], 'admin');
+        $admins = model('App\Models\UserModel')->getUsersByCenter((int)$case['center_id'], 'admin');
+        $db = \Config\Database::connect();
         
         foreach ($admins as $admin) {
-            $notificationModel->insert([
-                'user_id' => $admin['id'],
+            $db->table('notifications')->insert([
+                'user_id' => (int)$admin['id'],
                 'notification_type' => 'approval_required',
                 'title' => 'New OB Entry for Approval',
                 'message' => "Case {$case['case_number']} has been submitted for approval",
                 'link_entity_type' => 'cases',
-                'link_entity_id' => $id,
-                'priority' => 'medium'
+                'link_entity_id' => (int)$id,
+                'link_url' => '/cases/view/' . $id,
+                'priority' => 'medium',
+                'is_read' => 0,
+                'created_at' => date('Y-m-d H:i:s')
             ]);
         }
         
@@ -360,22 +366,51 @@ class CaseController extends ResourceController
         // Get input data (works for both JSON and form-data)
         $input = $this->request->getJSON(true) ?? $this->request->getPost();
         
-        // Check if should submit immediately or save as draft
+        // Determine initial status based on should_submit flag
         $shouldSubmit = isset($input['should_submit']) && $input['should_submit'] == 1;
+        $hasPartyData = isset($input['party']) && is_array($input['party']) && !empty($input['party']);
+        
+        // Debug logging
+        log_message('debug', 'Input should_submit value: ' . json_encode($input['should_submit'] ?? 'NOT SET'));
+        log_message('debug', 'shouldSubmit boolean: ' . ($shouldSubmit ? 'true' : 'false'));
+        log_message('debug', 'hasPartyData boolean: ' . ($hasPartyData ? 'true' : 'false'));
+        
+        // Set initial status (default to draft if nothing matches)
+        $initialStatus = 'draft';
+        
+        if ($shouldSubmit) {
+            if ($hasPartyData) {
+                $initialStatus = 'submitted';
+            } else {
+                $initialStatus = 'pending_parties';
+            }
+        }
+        
+        log_message('debug', 'Final initialStatus: ' . $initialStatus);
         
         $data = [
-            'center_id' => $centerId,
+            'center_id' => (int)$centerId,
             'incident_date' => $input['incident_date'] ?? null,
             'incident_location' => $input['incident_location'] ?? null,
             'incident_description' => $input['incident_description'] ?? null,
             'crime_type' => $input['crime_type'] ?? null,
             'crime_category' => $input['crime_category'] ?? null,
             'priority' => $input['priority'] ?? 'medium',
-            'is_sensitive' => $input['is_sensitive'] ?? 0,
-            'status' => 'draft', // Always start as draft
-            'created_by' => $userId
+            'is_sensitive' => (int)($input['is_sensitive'] ?? 0),
+            'status' => (string)$initialStatus,
+            'created_by' => (int)$userId
         ];
         
+        // Set submitted_at if submitting
+        if ($shouldSubmit) {
+            $data['submitted_at'] = date('Y-m-d H:i:s');
+        }
+        
+        log_message('info', 'Creating incident case - shouldSubmit: ' . ($shouldSubmit ? 'true' : 'false'));
+        log_message('info', 'Creating incident case - hasPartyData: ' . ($hasPartyData ? 'true' : 'false'));
+        log_message('info', 'Creating incident case - initialStatus: ' . $initialStatus);
+        log_message('info', 'Creating incident case - status field value: ' . var_export($data['status'], true));
+        log_message('info', 'Creating incident case - status is empty string?: ' . (($data['status'] === '') ? 'YES' : 'NO'));
         log_message('info', 'Creating incident case with data: ' . json_encode($data));
         
         $caseModel = model('App\Models\CaseModel');
@@ -385,8 +420,16 @@ class CaseController extends ResourceController
         $db->transStart();
         
         try {
+            // CRITICAL FIX: Ensure status is never empty before insert
+            if (empty($data['status']) || $data['status'] === '' || $data['status'] === null) {
+                log_message('warning', 'Status was empty/null before insert, forcing to draft');
+                $data['status'] = 'draft';
+            }
+            
             // Create the case
+            log_message('debug', 'About to call $caseModel->insert() with status: ' . var_export($data['status'], true));
             $caseId = $caseModel->insert($data);
+            log_message('debug', 'After insert, caseId: ' . ($caseId ?: 'FALSE'));
             
             if (!$caseId) {
                 $errors = $caseModel->errors();
@@ -467,50 +510,49 @@ class CaseController extends ResourceController
                 return $this->fail('Failed to create incident case', 500);
             }
             
-            // If should submit, update status and notify admin
+            // Get the created case details
+            $case = $caseModel->find($caseId);
+            
+            // If should submit, notify admin
             if ($shouldSubmit) {
                 $hasParties = isset($input['party']) && is_array($input['party']);
                 
                 if ($hasParties) {
-                    // Has parties - submit normally
-                    $caseModel->update($caseId, [
-                        'status' => 'submitted',
-                        'submitted_at' => date('Y-m-d H:i:s')
-                    ]);
-                    
                     $message = 'Incident submitted for approval';
                 } else {
-                    // No parties - set to pending_parties
-                    $caseModel->update($caseId, [
-                        'status' => 'pending_parties',
-                        'submitted_at' => date('Y-m-d H:i:s')
-                    ]);
-                    
                     $message = 'Incident submitted. Admin will assign investigator to identify parties.';
                 }
                 
                 // Notify admin
-                $notificationModel = model('App\Models\NotificationModel');
-                $admins = model('App\Models\UserModel')->getUsersByCenter($centerId, 'admin');
-                
-                foreach ($admins as $admin) {
-                    $notificationModel->insert([
-                        'user_id' => $admin['id'],
-                        'notification_type' => $hasParties ? 'approval_required' : 'incident_reported',
-                        'title' => $hasParties ? 'Incident Submitted for Approval' : 'Incident Reported (No Parties)',
-                        'message' => "Incident case {$data['case_number'] ?? 'N/A'} has been " . ($hasParties ? 'submitted for approval' : 'reported and needs investigator assignment'),
-                        'link_entity_type' => 'cases',
-                        'link_entity_id' => $caseId,
-                        'priority' => 'medium'
-                    ]);
+                try {
+                    $admins = model('App\Models\UserModel')->getUsersByCenter((int)$centerId, 'admin');
+                    $db = \Config\Database::connect();
+                    
+                    foreach ($admins as $admin) {
+                        $caseNumber = isset($case['case_number']) ? $case['case_number'] : 'N/A';
+                        
+                        $db->table('notifications')->insert([
+                            'user_id' => (int)$admin['id'],
+                            'notification_type' => $hasParties ? 'approval_required' : 'system_alert',
+                            'title' => $hasParties ? 'Incident Submitted for Approval' : 'Incident Reported (No Parties)',
+                            'message' => "Incident case {$caseNumber} has been " . ($hasParties ? 'submitted for approval' : 'reported and needs investigator assignment'),
+                            'link_entity_type' => 'cases',
+                            'link_entity_id' => (int)$caseId,
+                            'link_url' => '/cases/view/' . $caseId,
+                            'priority' => 'medium',
+                            'is_read' => 0,
+                            'created_at' => date('Y-m-d H:i:s')
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    log_message('error', 'Notification creation failed: ' . $e->getMessage());
+                    // Don't fail the whole request if notification fails
                 }
             } else {
                 $message = isset($input['party']) 
                     ? 'Incident saved as draft with party information.' 
                     : 'Incident saved as draft. You can add parties and submit later.';
             }
-            
-            $case = $caseModel->find($caseId);
             
             return $this->respondCreated([
                 'status' => 'success',
